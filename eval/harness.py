@@ -82,10 +82,22 @@ def run_eval(
             v2_wins += 1
 
     settings = get_settings()
-    judge_is_real = settings.llm_provider == "anthropic"
+    # A real LLM judge is only present for anthropic, or cassette (replayed real responses).
+    real_judge = settings.llm_provider in ("anthropic", "cassette")
+    offline = not real_judge
+    placeholder_caveat = (
+        "OFFLINE PLACEHOLDER: produced by the deterministic fake judge, NOT a real estimate "
+        "and NOT to be reported as a result. Run with STYLIST_LLM=anthropic for a genuine "
+        "LLM-as-judge number."
+    )
+    real_caveat = (
+        "LLM-as-judge estimate over a small self-built brief set. This is NOT validated "
+        "relevance accuracy: there is no human ground truth and the judge is itself an LLM. "
+        "Treat as directional only."
+    )
     metrics = {
         "n_briefs": len(briefs),
-        # --- Objective ---
+        # --- Structural guarantees (provider-independent; deterministic code, not accuracy) ---
         "groundedness_rate": round(grounded_factual / total_factual, 4) if total_factual else None,
         "n_factual_claims": total_factual,
         "constraint_satisfaction_rate": round(constraint_ok / constraint_checks, 4)
@@ -95,32 +107,43 @@ def run_eval(
         if constraint_checks
         else None,
         "n_returned_items": constraint_checks,
+        "constraint_note": (
+            "measured against the PARSED profile; natural-language -> structured parsing errors "
+            "are a separate, upstream concern not captured here"
+        ),
         "adversarial_grounding_block_rate": round(adversarial_blocked / adversarial_total, 4)
         if adversarial_total
         else None,
         "n_adversarial": adversarial_total,
-        # --- Subjective (estimate only) ---
+        "adversarial_note": (
+            "self-authored attack set (numbers/wrong metal/stone/cert/over-budget smuggled into "
+            "opinion text); demonstrates known-pattern coverage, NOT robustness to all phrasings"
+        ),
+        # --- Subjective (estimate only; numbers are NULL on the offline provider so a fake
+        #     judge score is never presented as a result) ---
         "subjective_relevance": {
-            "mean_score_1to5": round(mean(relevance_scores), 3) if relevance_scores else None,
-            "n": len(relevance_scores),
+            "mean_score_1to5": (
+                round(mean(relevance_scores), 3) if (relevance_scores and real_judge) else None
+            ),
+            "n": len(relevance_scores) if real_judge else 0,
             "scale": "1-5 (LLM-as-judge)",
             "judge_prompt": JUDGE_PROMPT,
-            "caveat": (
-                "LLM-as-judge estimate over a small self-built brief set. This is NOT "
-                "validated relevance accuracy: there is no human ground truth and the judge "
-                "is itself an LLM. Treat as directional only."
-            ),
+            "offline_placeholder": offline,
+            "caveat": placeholder_caveat if offline else real_caveat,
         },
         # --- Prompt iteration ---
         "pairwise_prompt_iteration": {
-            "variant_b_win_rate": round(v2_wins / pairwise_total, 4) if pairwise_total else None,
-            "n": pairwise_total,
+            "variant_b_win_rate": (
+                round(v2_wins / pairwise_total, 4) if (pairwise_total and real_judge) else None
+            ),
+            "n": pairwise_total if real_judge else 0,
             "method": "randomized order-shuffled pairwise (position bias neutralized)",
             "variants": "v1 (concise) vs v2 (occasion-enriched)",
+            "offline_placeholder": offline,
         },
         # --- Provenance ---
         "provider": settings.llm_provider,
-        "judge_model": "claude-sonnet-4-6" if judge_is_real else "deterministic-offline-fake",
+        "judge_model": "claude-sonnet-4-6" if real_judge else "deterministic-offline-fake",
         "embedder": (embedder or get_embedder()).name,
         "catalog_snapshot": ctx.snapshot_hash,
     }
@@ -145,33 +168,48 @@ def format_report(run: EvalRun) -> str:
     m = run.metrics
     sr = m["subjective_relevance"]
     pw = m["pairwise_prompt_iteration"]
+    offline = sr.get("offline_placeholder", False)
 
     def pct(x):
         return "n/a" if x is None else f"{x * 100:.1f}%"
 
-    return "\n".join(
-        [
-            f"# Eval report — {run.id}",
-            f"Dataset: {run.dataset_ref}  |  Provider: {m['provider']}  |  "
-            f"Embedder: {m['embedder']}  |  Cost: ${run.cost_usd:.4f}",
-            "",
-            "## Objective metrics",
-            f"- Groundedness (factual claims grounded): {pct(m['groundedness_rate'])} "
-            f"(N={m['n_factual_claims']} claims)",
-            f"- Constraint satisfaction: {pct(m['constraint_satisfaction_rate'])} "
-            f"(N={m['n_returned_items']} returned items)",
-            f"- Retrieval validity: {pct(m['retrieval_validity_rate'])} "
-            f"(N={m['n_returned_items']})",
-            f"- Adversarial grounding block rate: {pct(m['adversarial_grounding_block_rate'])} "
-            f"(N={m['n_adversarial']} injected hallucinations)",
-            "",
-            "## Subjective relevance (ESTIMATE — not validated accuracy)",
+    lines = [
+        f"# Eval report — {run.id}",
+        f"Dataset: {run.dataset_ref}  |  Provider: {m['provider']}  |  "
+        f"Embedder: {m['embedder']}  |  Cost: ${run.cost_usd:.4f}",
+        "",
+        "## Structural guarantees (provider-independent — deterministic code, NOT accuracy)",
+        f"- Factual claims grounded in output: {pct(m['groundedness_rate'])} "
+        f"(N={m['n_factual_claims']} claims) — by construction (facts rendered from the record)",
+        f"- Hard-constraint satisfaction: {pct(m['constraint_satisfaction_rate'])} "
+        f"(N={m['n_returned_items']} items) — vs the PARSED profile ({m['constraint_note']})",
+        f"- Retrieval validity: {pct(m['retrieval_validity_rate'])} (N={m['n_returned_items']})",
+        f"- Adversarial grounding block rate: {pct(m['adversarial_grounding_block_rate'])} "
+        f"(N={m['n_adversarial']} injected) — {m['adversarial_note']}",
+        "",
+        "## Subjective relevance (LLM-as-judge ESTIMATE — never validated accuracy)",
+    ]
+    if offline:
+        lines.append(
+            "- offline placeholder (deterministic fake judge): NOT a real estimate — run with "
+            "STYLIST_LLM=anthropic for a genuine number."
+        )
+    else:
+        lines.append(
             f"- Mean LLM-judge score: {sr['mean_score_1to5']}/5 (N={sr['n']}, "
-            f"judge={m['judge_model']})",
-            f"- Caveat: {sr['caveat']}",
-            "",
-            "## Prompt iteration",
+            f"judge={m['judge_model']})"
+        )
+        lines.append(f"- Caveat: {sr['caveat']}")
+    lines.append("")
+    lines.append("## Prompt iteration")
+    if offline:
+        lines.append(
+            "- offline placeholder (deterministic fake judge): real win rate pending an "
+            "anthropic run."
+        )
+    else:
+        lines.append(
             f"- Variant B win rate: {pct(pw['variant_b_win_rate'])} (N={pw['n']}, "
-            f"{pw['method']}; {pw['variants']})",
-        ]
-    )
+            f"{pw['method']}; {pw['variants']})"
+        )
+    return "\n".join(lines)

@@ -93,29 +93,53 @@ curl -s localhost:8000/api/eval/run -H 'content-type: application/json' -d '{"n"
 
 ## Measured numbers
 
-Every number below is **freshly measured on this project**, reported with N. The run shown is
-the reproducible **offline (`fake`) provider** run over a self-built set of **N=40 briefs**
-(`POST /api/eval/run {"n":40}`). Read the two columns of caveats carefully — that honesty is
-the point.
+There are two kinds of number here and they are **not** the same kind of claim. Read the
+distinction — it is the whole point of the project.
 
-| Metric | Value | N | Notes |
+### A. Structural guarantees (provider-independent)
+
+These come from **deterministic code** — the grounding verifier and the SQL filters — **not
+from model accuracy**. They hold under *any* provider (measured offline at N=40; reconfirmed
+in the real run). They are guarantees about the *architecture*, not claims that the LLM is
+accurate or that the recommendations are good.
+
+| Guarantee | Result | N | What it means — and what it does **not** |
 |---|---|---|---|
-| **Groundedness** (factual claims grounded) | **100%** | 559 claims | Structural guarantee: facts are templated + verified, so this holds for *any* provider. |
-| **Constraint satisfaction** | **100%** | 114 items | Hard constraints enforced by SQL, re-checked independently per returned item. |
-| **Retrieval validity** | **100%** | 114 items | Every returned item satisfies all hard constraints. |
-| **Adversarial grounding block rate** | **100%** | 40 injected | A hallucinated claim is injected per brief; the verifier blocks every one. |
-| Subjective relevance (estimate) | 3.85 / 5 | 40 | **Not validated accuracy.** Offline deterministic judge here; no human ground truth. |
-| Prompt-iteration pairwise (v2 win) | 95% | 40 | Randomized order-shuffled pairwise (position bias neutralized); v1 concise vs v2 occasion-enriched. |
-| Enrichment tagging agreement | 100% | 80 | **Trivial offline:** the fake tagger reuses the synthetic `style_hint`. A real run measures genuine inference. |
-| Eval cost | $0.00 | — | Offline. A real `anthropic` run reports actual per-token $ (cost-capped). |
+| Factual claims grounded in output | 100% | 559 claims | **By construction**: factual text is rendered from the record, so a fabricated value cannot appear in the templated path. This is structural, not a measure of model accuracy. |
+| Hard-constraint satisfaction | 100% | 114 items | Enforced by SQL, re-checked per returned item — **against the _parsed_ profile** (see caveats). |
+| Retrieval validity | 100% | 114 items | Every returned item satisfies all parsed hard constraints. |
+| Adversarial grounding block rate | 100% | 40 injected | The verifier blocks every hallucination in a **self-authored** set of 40 attacks (numbers / wrong metal / wrong stone / absent certification / over-budget smuggled into opinion text). |
 
-**How to read this honestly.** The objective guarantees (groundedness, constraint-satisfaction,
-retrieval validity, adversarial block rate) are **structural** — they come from deterministic
-code (the verifier and SQL filters), so they hold regardless of the LLM. The **adversarial
-block rate is the strongest real result**: the verifier actively catches injected
-hallucinations. The subjective-relevance and tagging numbers on the offline provider are
-**placeholders by design** (the fake judge/tagger are deterministic heuristics); rerun with
-`STYLIST_LLM=anthropic` for genuine LLM-judge and tagging measurements, which will differ.
+Caveats — these bound what the 100%s actually claim:
+- **"Grounded" ≠ "accurate" ≠ "good."** Groundedness means no *unsupported* factual claim
+  survives to the user. It does not validate that the catalog data is itself correct, nor that
+  the recommendation is a *good* pick.
+- **Constraint satisfaction is measured against the _parsed_ profile.** Natural-language →
+  structured parsing is a separate, upstream error source **not** captured by this number: if
+  the parser misreads "no gold," retrieval cannot filter what it never parsed. Parsing quality
+  is a distinct (and unmeasured-here) concern.
+- **The adversarial set is self-authored (N=40) and covers _known_ attack patterns.** A 100%
+  block rate shows the verifier catches the attacks I designed; it is **not** a proof of
+  robustness against all phrasings — e.g. a true-but-misleading claim, or an attack built only
+  from allowed vocabulary. It is a floor of demonstrated coverage, not a robustness guarantee.
+
+### B. Subjective / model-dependent numbers — _pending a real run_
+
+These require a real LLM and are **deliberately not reported from the offline provider** (the
+fake judge and tagger are deterministic placeholders, so any number from them would be
+meaningless dressed up as a result). They will be filled in from **one small, cost-capped
+`anthropic` run**, each as an estimate with N and an explicit caveat:
+
+| Metric | Status | How it will be reported |
+|---|---|---|
+| Subjective relevance | _pending real run_ | LLM-as-judge **estimate** with N, the judge prompt, and a "not validated accuracy" caveat. |
+| Prompt-iteration pairwise win rate | _pending real run_ | Randomized order-shuffled pairwise (position-bias neutralized), with N. |
+| Enrichment tagging agreement | _pending real run_ | Real inference vs the synthetic `style_hint` **pseudo-label** (not human-annotated), N=80. |
+| Eval cost (USD) | _pending real run_ | Actual per-token cost of the capped run. |
+
+> Reproducibility: the real run's responses are recorded as cassettes (`eval/cassettes/`) and a
+> CI test replays them, so the published subjective numbers are reproducible without a key or
+> further spend.
 
 ## Faithfulness & evaluation guarantees (the §4 contract)
 
@@ -178,8 +202,17 @@ in the Render dashboard.
 
 - **Offline evaluation has no real users.** Without interaction/click data, recommender
   evaluation is inherently weak; nothing here measures real-world conversion or satisfaction.
+- **Faithfulness is bounded by parsing.** The grounding guarantee covers what the system
+  *outputs*; it does not cover the natural-language → structured-profile parse. If the parser
+  misreads a constraint, retrieval filters the wrong thing — and the verifier won't catch that,
+  because the returned facts are still grounded in the (wrongly-retrieved) record. Parsing
+  quality is a separate, upstream concern not measured by the grounding numbers.
+- **Adversarial coverage is self-authored.** The 100% block rate is over a set of attacks I
+  wrote (N=40). It demonstrates the verifier catches known patterns; it is not a robustness
+  proof against adversarial phrasings I didn't think of (e.g. true-but-misleading claims, or
+  attacks confined to the allowed vocabulary).
 - **Subjective relevance has no ground truth.** It is an LLM-as-judge *estimate*, never
-  validated accuracy. The offline-provider value is a deterministic placeholder.
+  validated accuracy — and it is reported only from a real run, never from the fake provider.
 - **Synthetic / sparse labels.** Style tags are LLM-inferred; on synthetic data the tagging
   metric compares against a generator hint (a pseudo-label), not human annotation.
 - **The hashing embedder is lexical**, not a learned semantic model — adequate for a small

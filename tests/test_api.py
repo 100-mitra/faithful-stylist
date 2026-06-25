@@ -87,7 +87,10 @@ def test_eval_run_and_fetch(client):
     body = r.json()
     eval_id = body["eval"]["id"]
     assert body["eval"]["metrics"]["groundedness_rate"] == 1.0
-    assert "not validated accuracy" in body["report"].lower()
+    # Honest framing: structural guarantees + offline subjective suppressed.
+    assert "Structural guarantees" in body["report"]
+    assert body["eval"]["metrics"]["subjective_relevance"]["offline_placeholder"] is True
+    assert body["eval"]["metrics"]["subjective_relevance"]["mean_score_1to5"] is None
     # Fetch it back.
     got = client.get(f"/api/eval/{eval_id}")
     assert got.status_code == 200
