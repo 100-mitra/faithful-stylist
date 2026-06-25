@@ -12,7 +12,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from core.config import get_settings
-from core.models import PreferenceProfile, Product, StyleTags
+from core.models import EvalRun, PreferenceProfile, Product, StyleTags
 
 
 def make_engine(url: str | None = None, echo: bool = False):
@@ -83,3 +83,14 @@ def query_products(engine, profile: PreferenceProfile) -> list[Product]:
         if hc.categories:
             stmt = stmt.where(Product.category.in_(hc.categories))
         return list(session.exec(stmt).all())
+
+
+def save_eval_run(engine, run: EvalRun) -> None:
+    with Session(engine) as session:
+        session.merge(run)
+        session.commit()
+
+
+def get_eval_run(engine, run_id: str) -> EvalRun | None:
+    with Session(engine) as session:
+        return session.get(EvalRun, run_id)

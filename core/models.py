@@ -135,6 +135,21 @@ class RerankResult(BaseModel):
     ranked_ids: list[str] = Field(default_factory=list)
 
 
+class JudgeVerdict(BaseModel):
+    """LLM-as-judge relevance estimate (subjective — reported WITH N and a caveat)."""
+
+    relevant: bool = True
+    score: int = 3  # 1-5
+    reason: str = ""
+
+
+class PairwiseVerdict(BaseModel):
+    """Order-shuffled pairwise comparison of two rationale variants (prompt iteration)."""
+
+    winner: Literal["A", "B"] = "A"
+    reason: str = ""
+
+
 class FactRef(BaseModel):
     """A reference to a factual field to surface — carries NO value."""
 

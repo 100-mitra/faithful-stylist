@@ -15,6 +15,33 @@ from core.models import PreferenceProfile, Product, StyleTags
 from core.store import query_products
 
 
+def constraint_violations(product: Product, profile: PreferenceProfile) -> list[str]:
+    """List the profile's HARD constraints that ``product`` violates (objective check).
+
+    Used by the eval harness to measure constraint-satisfaction independently of the SQL
+    filter — a returned item with any violation is a faithfulness/retrieval failure.
+    """
+    hc = profile.hard_constraints
+    bad: list[str] = []
+    if profile.budget_max is not None and product.price > profile.budget_max:
+        bad.append(f"over budget ({product.price} > {profile.budget_max})")
+    if hc.allowed_metals and product.metal not in hc.allowed_metals:
+        bad.append(f"metal {product.metal} not in allowed {hc.allowed_metals}")
+    if hc.excluded_metals and product.metal in hc.excluded_metals:
+        bad.append(f"metal {product.metal} is excluded")
+    if hc.require_no_stone and product.stone_primary is not None:
+        bad.append("has a stone but no-stone required")
+    if hc.allowed_stones and product.stone_primary not in hc.allowed_stones:
+        bad.append(f"stone {product.stone_primary} not in allowed {hc.allowed_stones}")
+    if hc.excluded_stones and (
+        product.stone_primary in hc.excluded_stones or product.stone_accent in hc.excluded_stones
+    ):
+        bad.append("contains an excluded stone")
+    if hc.categories and product.category not in hc.categories:
+        bad.append(f"category {product.category} not in {hc.categories}")
+    return bad
+
+
 def product_doc_text(product: Product, tags: StyleTags | None) -> str:
     parts = [product.title, product.metal, product.category]
     if product.stone_primary:

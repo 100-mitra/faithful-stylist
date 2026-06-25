@@ -22,7 +22,7 @@ from pydantic import BaseModel
 
 from core import textparse
 from core.config import CACHE_DIR, Settings, get_settings
-from core.models import RationaleDraft, RerankResult
+from core.models import JudgeVerdict, PairwiseVerdict, RationaleDraft, RerankResult
 
 # Task -> model tier (brief §3). Haiku for high-volume tagging/parse; Sonnet for reasoning.
 TASK_MODEL: dict[str, str] = {
@@ -31,6 +31,7 @@ TASK_MODEL: dict[str, str] = {
     "rerank": "claude-sonnet-4-6",
     "rationale": "claude-sonnet-4-6",
     "judge": "claude-sonnet-4-6",
+    "judge_pairwise": "claude-sonnet-4-6",
 }
 
 # USD per 1M tokens (input, output). Source: claude-api reference, verified at build time.
@@ -202,20 +203,49 @@ def _fake_rationale(ctx: dict, schema: type[BaseModel]) -> BaseModel:
     style = (p.get("raw_attributes") or {}).get("style_hint")
     styles = prof.get("styles") or []
     chosen = style or (styles[0] if styles else "classic")
+    clauses = [f"reads as {chosen} to me"]
+    # The "v2" rationale prompt variant surfaces an extra (grounded) occasion clause.
+    if ctx.get("variant") == "v2" and prof.get("occasion"):
+        clauses.append(f"a lovely choice for {prof['occasion']}")
     return RationaleDraft(
         product_id=p.get("id", ""),
         factual_slots=slots,  # type: ignore[arg-type]
-        subjective_clauses=[f"reads as {chosen} to me"],
+        subjective_clauses=clauses,
         recommended=True,
     )
 
 
-# Registry of deterministic fake handlers. The "judge" handler is registered in P1.10.
+def _fake_judge(ctx: dict, schema: type[BaseModel]) -> BaseModel:
+    prof = ctx.get("profile", {})
+    p = ctx.get("product", {})
+    score = 3
+    if p.get("metal") in (prof.get("metal_prefs") or []):
+        score += 1
+    if p.get("stone_primary") in (prof.get("stone_prefs") or []):
+        score += 1
+    if prof.get("budget_max") and p.get("price", 0) > prof["budget_max"]:
+        score -= 2
+    score = max(1, min(5, score))
+    return JudgeVerdict(relevant=score >= 3, score=score, reason="offline deterministic judge")
+
+
+def _fake_judge_pairwise(ctx: dict, schema: type[BaseModel]) -> BaseModel:
+    # Prefer the richer (more grounded claims) rationale; tie -> A. Position-neutral.
+    a, b = ctx.get("a_claims", 0), ctx.get("b_claims", 0)
+    winner = "B" if b > a else "A"
+    return PairwiseVerdict(
+        winner=winner, reason="offline deterministic judge (more grounded claims)"
+    )
+
+
+# Registry of deterministic fake handlers (offline mode).
 _FAKE_HANDLERS: dict[str, Any] = {
     "enrich": _fake_enrich,
     "parse_profile": _fake_parse_profile,
     "rerank": _fake_rerank,
     "rationale": _fake_rationale,
+    "judge": _fake_judge,
+    "judge_pairwise": _fake_judge_pairwise,
 }
 
 
