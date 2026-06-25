@@ -1,0 +1,23 @@
+# Render Blueprint — deploys the API + demo UI as a single Docker web service.
+# The public demo runs on the offline `fake` provider by default: no API key, no cost,
+# and the headline grounding/hallucination-block demo works fully. To serve real LLM
+# recommendations, set STYLIST_LLM=anthropic and add ANTHROPIC_API_KEY in the dashboard.
+services:
+  - type: web
+    name: faithful-stylist
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz/
+    autoDeploy: true
+    envVars:
+      - key: STYLIST_LLM
+        value: fake # flip to "anthropic" for real recs (then set ANTHROPIC_API_KEY)
+      - key: STYLIST_EMBEDDER
+        value: hashing
+      - key: STYLIST_DB_URL
+        value: sqlite:////app/data/stylist.db
+      - key: STYLIST_LLM_BUDGET_USD
+        value: "1.00"
+      - key: ANTHROPIC_API_KEY
+        sync: false # set as a secret in the dashboard only if using STYLIST_LLM=anthropic
