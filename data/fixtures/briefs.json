@@ -1,0 +1,42 @@
+[
+  {
+    "id": "demo-engagement",
+    "text": "Looking for an engagement ring with a vintage, romantic feel. Budget up to 1,50,000. I'd prefer platinum or white gold, ideally with a diamond.",
+    "note": "Primary demo brief: end-to-end recommendation with grounded rationales + claims audit."
+  },
+  {
+    "id": "adv-platinum-budget",
+    "text": "Platinum only, nothing above 80,000. No gold at all.",
+    "note": "Adversarial hard-constraint brief: assert zero metal/budget violations in retrieval."
+  },
+  {
+    "id": "gift-daily",
+    "text": "A delicate everyday pendant as a gift for my sister. Keep it under 30,000, she likes minimalist pieces.",
+    "note": "Gift + daily-wear, low budget, minimalist style."
+  },
+  {
+    "id": "festive-gold",
+    "text": "Something statement and festive in yellow gold for a wedding. Around 1,00,000 is fine.",
+    "note": "Festive/wedding, statement style, gold."
+  },
+  {
+    "id": "silver-minimalist",
+    "text": "Minimalist silver earrings for daily office wear, on a tight budget under 8,000.",
+    "note": "Budget-constrained silver, office occasion."
+  },
+  {
+    "id": "coldstart-sparse",
+    "text": "Something nice for my mom.",
+    "note": "Cold-start: sparse input should yield sensible defaults + a clarifying follow-up."
+  },
+  {
+    "id": "ruby-romantic",
+    "text": "A romantic ruby ring for an anniversary, rose gold preferred, budget around 90,000.",
+    "note": "Coloured-stone preference with metal preference."
+  },
+  {
+    "id": "no-stone-modern",
+    "text": "A modern plain metal bangle, no gemstones, under 60,000.",
+    "note": "Excludes stones; tests stone exclusion as a hard constraint."
+  }
+]

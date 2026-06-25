@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Secrets / local config
+.env
+.env.local
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Scrape cache and scraped datasets — NEVER commit the dataset (brief §7).
+# Only the small hand-curated fixture under data/fixtures/ is committed.
+data/cache/
+data/scraped/
+data/raw/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

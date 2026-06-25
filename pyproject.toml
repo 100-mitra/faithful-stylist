@@ -1,0 +1,51 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "faithful-stylist"
+version = "0.1.0"
+description = "A grounded, evaluated conversational jewellery recommender (AI Stylist) with a deterministic faithfulness verifier."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Faithful Stylist" }]
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "pydantic>=2.6",
+    "sqlmodel>=0.0.16",
+    "numpy>=1.26",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "python-dotenv>=1.0",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+# Real LLM provider. Pure-Python, lightweight; included by default in the image but
+# never required for CI (tests use the deterministic FakeProvider).
+anthropic = ["anthropic>=0.40"]
+# Responsible real-brand scraper (Phase 1, step 14). Kept optional + dataset gitignored.
+scrape = ["requests>=2.31", "beautifulsoup4>=4.12", "lxml>=5.1"]
+# Opt-in heavier embedders behind the Embedder interface. NOT in the default/deploy set.
+st = ["sentence-transformers>=2.6"]
+voyage = ["voyageai>=0.2"]
+dev = ["pytest>=8.0", "ruff>=0.4", "anthropic>=0.40"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app", "core", "eval"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["B008"]  # FastAPI uses function calls (Depends/Query) in argument defaults.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+# Tests never hit the network: the LLM provider factory defaults to the deterministic
+# FakeProvider when STYLIST_LLM is unset, so no env wiring or API key is needed in CI.

@@ -1,0 +1,21 @@
+services:
+  api:
+    build: .
+    image: faithful-stylist:latest
+    ports:
+      - "8000:8000"
+    environment:
+      # Default to the offline fake provider so `docker-compose up` works with no key.
+      # Set STYLIST_LLM=anthropic and provide ANTHROPIC_API_KEY (e.g. via .env) for real runs.
+      STYLIST_LLM: ${STYLIST_LLM:-fake}
+      STYLIST_EMBEDDER: ${STYLIST_EMBEDDER:-hashing}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      STYLIST_LLM_BUDGET_USD: ${STYLIST_LLM_BUDGET_USD:-1.00}
+    volumes:
+      # Persist the SQLite DB and (gitignored) caches across restarts.
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz/').status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

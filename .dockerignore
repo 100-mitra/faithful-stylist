@@ -1,0 +1,21 @@
+.git
+.github
+.venv
+venv
+env
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.env
+.env.local
+*.db
+*.sqlite*
+data/cache
+data/scraped
+data/raw
+tests
+README assets
+*.md
+!README.md

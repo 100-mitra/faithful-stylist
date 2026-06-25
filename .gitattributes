@@ -1,0 +1,9 @@
+# Normalize line endings: store text as LF in the repo so Linux CI (ruff format
+# --check) and Windows dev checkouts stay consistent.
+* text=auto eol=lf
+
+# Binary assets (none yet, but be explicit for future thumbnails).
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
