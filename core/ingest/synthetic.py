@@ -17,22 +17,21 @@ import json
 import random
 from pathlib import Path
 
+from core.vocab import CATEGORIES, METALS, OCCASIONS, STYLES
+
 # Fixed so generated rows are byte-stable across runs/machines.
 INGESTED_AT = "2026-01-01T00:00:00+00:00"
 
-METALS = ["yellow gold", "white gold", "rose gold", "platinum", "silver"]
 GOLD_METALS = {"yellow gold", "white gold", "rose gold"}
 # Stones that are sold by carat weight; others (pearl) or None get carat=None.
+# (CARAT_STONES + OTHER_STONES == vocab.STONES; split here to encode carat semantics.)
 CARAT_STONES = ["diamond", "ruby", "emerald", "sapphire"]
 OTHER_STONES = ["pearl", "amethyst", "topaz"]
 CARAT_CHOICES = [0.10, 0.20, 0.30, 0.50, 0.70, 1.00, 1.50, 2.00]
 
-CATEGORIES = ["ring", "pendant", "earrings", "necklace", "bracelet", "bangle", "nose pin"]
 # Categories where a centre stone is common.
 STONE_HEAVY = {"ring", "pendant", "earrings", "necklace"}
 
-STYLES = ["vintage", "minimalist", "boho", "statement", "classic", "modern", "romantic", "delicate"]
-OCCASIONS = ["engagement", "daily wear", "festive", "gift", "wedding", "office"]
 COLLECTIONS = ["Aurelia", "Meher", "Solene", "Vasanti", "Indra", "Noor", "Rivaah", "Kalindi"]
 
 
