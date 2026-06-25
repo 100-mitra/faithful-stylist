@@ -34,3 +34,6 @@ data/raw/
 Thumbs.db
 .idea/
 .vscode/
+
+# Local-only working docs (internal planning/strategy) — never published
+_local/
