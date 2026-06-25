@@ -45,10 +45,17 @@ def _snapshot_hash(products: list[Product]) -> str:
 def build_catalog(
     provider: LLMProvider | None = None,
     db_url: str = "sqlite://",
+    products: list[Product] | None = None,
 ) -> CatalogContext:
-    """Ingest the committed fixture, enrich it, and index it into SQL (once)."""
+    """Ingest a catalog, enrich it, and index it into SQL (once).
+
+    Defaults to the committed synthetic fixture; pass ``products`` (e.g. rows from the
+    responsible scraper) to run the same pipeline on real-brand data — the system works
+    end-to-end on either source.
+    """
     provider = provider or get_provider()
-    products = [Product(**d) for d in load_catalog_dicts()]
+    if products is None:
+        products = [Product(**d) for d in load_catalog_dicts()]
     tags_by_id = enrich_catalog(products, provider)
     engine = make_engine(db_url)
     init_db(engine)
