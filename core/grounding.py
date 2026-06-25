@@ -7,12 +7,20 @@ facts to surface (``FactRef``) and writes short opinion clauses. This module:
   * audits every claim with a pure, network-free, LLM-free ``GroundingVerifier``:
       A. each referenced factual field must be present/true on the record,
       B. the draft's product id must match the candidate, and
-      C. no number/currency/metal/stone/certification fact may be smuggled into an
-         opinion clause.
+      C. no number/currency/metal/stone/certification fact (expressed in the catalog's
+         controlled vocabulary) may be smuggled into an opinion clause.
 
-Any blocked factual claim is removed from the user-facing rationale, so a fabricated
-factual claim can never reach the user. We bias toward over-blocking: a false-positive
-block is safe; a false-negative is the project-killer.
+Any blocked factual claim is removed from the user-facing rationale. Within the templated
+factual path the LLM has no value channel at all, so a fabricated price/metal/stone/carat
+cannot appear there. We bias toward over-blocking: a false-positive block is safe; a
+false-negative is the project-killer.
+
+SCOPE / KNOWN LIMITS (do not overstate this): check C recognises only the controlled
+vocabulary (a fixed metal/stone/cert set + a numeric/currency/units regex). A factual term
+OUTSIDE that vocabulary (e.g. moissanite, palladium, titanium, lab-grown, gold-plated, an
+out-of-list stone) is NOT detected in opinion text. Opinion substance beyond smuggled facts
+(provenance, superlatives, value claims) is also unchecked — the opinion label bounds
+framing, not factual accuracy. See README > Limitations.
 """
 
 from __future__ import annotations

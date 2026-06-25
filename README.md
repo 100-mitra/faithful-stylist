@@ -25,7 +25,8 @@ dress up what isn't.
 
 ```
 freeform brief
-  └─▶ preference parse            (LLM → Pydantic profile; vocab-constrained, fail-loud)
+  └─▶ preference parse            (vocab-constrained → Pydantic profile; deterministic
+                                   textparse on the offline provider, LLM on anthropic)
        └─▶ hybrid retrieval       (HARD constraints as SQL filters FIRST, then semantic)
             └─▶ LLM rerank         (reorders survivors only — cannot break a constraint)
                  └─▶ grounded rationale
@@ -33,8 +34,9 @@ freeform brief
                       • code renders factual text from the record
                       • GroundingVerifier audits every claim (pure, no LLM, no network)
                       └─▶ recommendation + per-claim CLAIMS AUDIT  ◀── the differentiator
-  └─▶ honest eval harness         (groundedness · constraint-sat · retrieval validity ·
-                                   adversarial block rate · LLM-judge estimate · pairwise · $)
+  └─▶ honest eval harness         (structural: groundedness · constraint-sat · retrieval
+                                   validity · adversarial block rate │ real-run-only:
+                                   LLM-judge estimate · pairwise · $ — null/placeholder offline)
 ```
 
 - **The LLM has no value channel for facts.** It returns a `RationaleDraft` of *field
@@ -99,16 +101,18 @@ distinction — it is the whole point of the project.
 ### A. Structural guarantees (provider-independent)
 
 These come from **deterministic code** — the grounding verifier and the SQL filters — **not
-from model accuracy**. They hold under *any* provider (measured offline at N=40; reconfirmed
-in the real run). They are guarantees about the *architecture*, not claims that the LLM is
-accurate or that the recommendations are good.
+from model accuracy**. They are provider-independent by construction; the figures below are
+from the reproducible **offline (`fake`) run** (`POST /api/eval/run {"n":40,"top_k":3}` on the
+committed fixture) and will be re-confirmed when a real `anthropic` run is recorded. They are
+guarantees about the *architecture*, not claims that the LLM is accurate or that the
+recommendations are good.
 
 | Guarantee | Result | N | What it means — and what it does **not** |
 |---|---|---|---|
 | Factual claims grounded in output | 100% | 559 claims | **By construction**: factual text is rendered from the record, so a fabricated value cannot appear in the templated path. This is structural, not a measure of model accuracy. |
 | Hard-constraint satisfaction | 100% | 114 items | Enforced by SQL, re-checked per returned item — **against the _parsed_ profile** (see caveats). |
 | Retrieval validity | 100% | 114 items | Every returned item satisfies all parsed hard constraints. |
-| Adversarial grounding block rate | 100% | 40 injected | The verifier blocks every hallucination in a **self-authored** set of 40 attacks (numbers / wrong metal / wrong stone / absent certification / over-budget smuggled into opinion text). |
+| Adversarial grounding block rate | 100% | 40 injected | The verifier blocks every injected hallucination — one per brief, **rotated** across 5 self-authored attack categories (carat/number, wrong metal, wrong stone, absent certification, currency-in-opinion). See caveat: known patterns, not robustness. |
 
 Caveats — these bound what the 100%s actually claim:
 - **"Grounded" ≠ "accurate" ≠ "good."** Groundedness means no *unsupported* factual claim
@@ -120,8 +124,10 @@ Caveats — these bound what the 100%s actually claim:
   is a distinct (and unmeasured-here) concern.
 - **The adversarial set is self-authored (N=40) and covers _known_ attack patterns.** A 100%
   block rate shows the verifier catches the attacks I designed; it is **not** a proof of
-  robustness against all phrasings — e.g. a true-but-misleading claim, or an attack built only
-  from allowed vocabulary. It is a floor of demonstrated coverage, not a robustness guarantee.
+  robustness. The scan only recognises the controlled vocabulary (a fixed metal/stone/cert set
+  + a numeric/currency regex), so a factual term *outside* it (moissanite, palladium, titanium,
+  lab-grown, gold-plated, an out-of-list stone) is **not** detected, and a true-but-misleading
+  claim is not caught. It is a floor of demonstrated coverage, not a robustness guarantee.
 
 ### B. Subjective / model-dependent numbers — _pending a real run_
 
@@ -137,25 +143,28 @@ meaningless dressed up as a result). They will be filled in from **one small, co
 | Enrichment tagging agreement | _pending real run_ | Real inference vs the synthetic `style_hint` **pseudo-label** (not human-annotated), N=80. |
 | Eval cost (USD) | _pending real run_ | Actual per-token cost of the capped run. |
 
-> Reproducibility: the real run's responses are recorded as cassettes (`eval/cassettes/`) and a
-> CI test replays them, so the published subjective numbers are reproducible without a key or
-> further spend.
+> Reproducibility (once the real run is recorded via `python -m eval.record`): its responses
+> will be saved as cassettes under `eval/cassettes/`, and `tests/test_cassette.py` — currently
+> **skipped** until that run exists — will replay them so the subjective numbers reproduce with
+> no key and no further spend. **No cassettes or subjective numbers are published yet.**
 
 ## Faithfulness & evaluation guarantees (the §4 contract)
 
-- **Grounding invariant** — every factual claim is checkable against the record; unsupported
-  ones are blocked. Headline test: `tests/test_grounding.py` injects a hallucinated claim and
-  asserts it is blocked. If a fabricated factual claim can reach the user, the test fails.
+- **Grounding invariant** — every factual claim *expressed in the catalog's controlled
+  vocabulary* is checkable against the record; unsupported ones are blocked (terms outside the
+  vocabulary are not scanned — see Limitations). Headline test: `tests/test_grounding.py`
+  injects a hallucinated claim and asserts it is blocked.
 - **Subjective vs factual separation** — factual fields are templated from the record (the LLM
   never generates them free-form) and are verbatim in output; opinion is labelled as opinion.
 - **Constraint satisfaction** — hard constraints are retrieval-time SQL filters, not LLM
-  promises; adversarial test asserts zero violations.
+  promises; adversarial test asserts zero violations (against the parsed profile).
 - **No fabricated relevance numbers** — subjective relevance is only ever an LLM-judge estimate
-  with N + judge prompt + caveat. No metric is reused from another project.
+  with N + judge prompt + caveat, reported only from a real run. No metric is reused from another project.
 - **Prompt-iteration evidence** — ≥2 rationale prompts compared via randomized, order-shuffled
-  pairwise (neutralizes position bias); win rate reported.
-- **Reproducibility & cost** — every LLM call is cached by `hash(task+prompt+context+params)`;
-  identical requests return cached results; total $ is reported per eval run.
+  pairwise (neutralizes position bias); win rate reported from a real run (suppressed offline).
+- **Reproducibility & cost** — every LLM call is cached by
+  `hash(task+model+schema+system+prompt+context)`; identical requests return cached results;
+  total $ is reported per eval run.
 
 ## Data
 
@@ -163,10 +172,13 @@ meaningless dressed up as a result). They will be filled in from **one small, co
   committed fixture (`data/fixtures/catalog.json`). The whole pipeline runs end-to-end on it
   with no external dependency.
 - **Responsible real-brand scraper** (`core/ingest/scrape.py`) — targets a Shopify storefront's
-  public `products.json`; **respects robots.txt** (fetched with our descriptive User-Agent),
-  rate-limits (≥3s, single thread), caches to disk, extracts **only** the factual fields (+ a
-  thumbnail URL, never the bytes), and writes to **gitignored** `data/scraped/` — the dataset
-  is **never committed**. Style tags are still inferred by the LLM ("scrape facts, infer
+  public `products.json`; **honours that store's robots.txt** (fetched with our descriptive
+  User-Agent) and **fails closed** if robots.txt can't be fetched/parsed, rate-limits (≥3s,
+  single thread), caches to disk, and writes to **gitignored** `data/scraped/` — the dataset is
+  **never committed**. It extracts the factual fields it can parse from the listing (metal,
+  primary stone, carat, price, category, title); certification and accent stones aren't exposed
+  by `products.json`, so they're recorded as absent (any cert claim on a scraped item is thus
+  always blocked as uncertified). Style tags are still inferred by the LLM ("scrape facts, infer
   style"). The pipeline runs end-to-end on either source.
 
 ## Development
@@ -181,7 +193,9 @@ pytest                                                # offline, no key, fully d
 CI (GitHub Actions) runs ruff + pytest on the `fake` provider — green without any secret.
 Required tests (all green): grounding headline (hallucination blocked), factual-fields-verbatim,
 constraint-satisfaction adversarial, retrieval-filter, enrichment-schema validation, API
-integration, reproducibility/hash, scraper robots/parse.
+integration, cache-key/offline-replay reproducibility, scraper robots/parse. (The real-run
+**cassette** replay test is present but **skipped** until a real run is recorded — it is not
+counted among the green tests above.)
 
 ## Deploy (Render)
 
@@ -205,12 +219,22 @@ in the Render dashboard.
 - **Faithfulness is bounded by parsing.** The grounding guarantee covers what the system
   *outputs*; it does not cover the natural-language → structured-profile parse. If the parser
   misreads a constraint, retrieval filters the wrong thing — and the verifier won't catch that,
-  because the returned facts are still grounded in the (wrongly-retrieved) record. Parsing
-  quality is a separate, upstream concern not measured by the grounding numbers.
-- **Adversarial coverage is self-authored.** The 100% block rate is over a set of attacks I
-  wrote (N=40). It demonstrates the verifier catches known patterns; it is not a robustness
-  proof against adversarial phrasings I didn't think of (e.g. true-but-misleading claims, or
-  attacks confined to the allowed vocabulary).
+  because the returned facts are still grounded in the (wrongly-retrieved) record. Concretely:
+  "within your budget" is rendered grounded against the *parsed* `budget_max`, so a budget
+  mis-parse (lakh notation, or a max read as a min) can make the verifier *stamp* a budget claim
+  that's false to the user's actual intent. Parsing quality is a separate, upstream concern not
+  measured by the grounding numbers.
+- **The smuggled-fact scan is vocabulary-bounded.** It recognises only a fixed metal/stone/cert
+  set plus a numeric/currency/units regex. A factual material or gemstone claim phrased with a
+  term *outside* that vocabulary (moissanite, cubic zirconia, palladium, titanium, lab-grown,
+  gold-plated, conflict-free, an out-of-list stone like opal/garnet) is **not** detected and can
+  reach the user. So the 100% adversarial block rate covers *known, in-vocabulary* patterns —
+  not robustness to attacks I didn't think of.
+- **Opinion substance is unchecked.** Opinion clauses are scanned only for smuggled
+  numeric/metal/stone/cert facts; their substance is otherwise unverified. An unsupported
+  provenance, popularity, or value claim phrased as opinion ("ethically sourced", "best value in
+  India", "our bestseller") passes through with only a non-blocking note. The opinion label
+  bounds *framing*, not factual accuracy.
 - **Subjective relevance has no ground truth.** It is an LLM-as-judge *estimate*, never
   validated accuracy — and it is reported only from a real run, never from the fake provider.
 - **Synthetic / sparse labels.** Style tags are LLM-inferred; on synthetic data the tagging

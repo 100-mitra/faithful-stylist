@@ -98,6 +98,15 @@ def test_eval_run_and_fetch(client):
     assert client.get("/api/eval/missing").status_code == 404
 
 
+def test_tagging_accuracy_endpoint_suppressed_offline(client):
+    # The fake tagger echoes the hint it is scored against, so the endpoint must NOT serve
+    # a tautological number on the offline provider.
+    body = client.get("/api/tagging-accuracy").json()
+    assert body["offline_placeholder"] is True
+    assert body["tagging_accuracy"] is None
+    assert "tautology" in body["caveat"].lower()
+
+
 def test_index_ui_served(client):
     r = client.get("/")
     assert r.status_code == 200

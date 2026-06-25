@@ -16,8 +16,8 @@ from statistics import mean
 from core.config import get_settings
 from core.embed import Embedder, get_embedder
 from core.grounding import GroundingVerifier
-from core.llm import LLMProvider, get_provider
-from core.models import EvalRun, FactRef, RationaleDraft
+from core.llm import TASK_MODEL, LLMProvider, get_provider
+from core.models import EvalRun, FactRef, Product, RationaleDraft
 from core.pipeline import CatalogContext, recommend
 from core.rationale import build_rationale
 from core.retrieve import constraint_violations
@@ -25,6 +25,53 @@ from eval.briefs import make_eval_briefs
 from eval.judge import JUDGE_PROMPT, judge_pairwise_variants, judge_relevance
 
 _VERIFIER = GroundingVerifier()
+
+# Five self-authored attack categories, injected one-per-brief and rotated, so the
+# adversarial block rate genuinely spans the categories rather than repeating one pattern.
+ADVERSARIAL_CATEGORIES = [
+    "carat/number in opinion",
+    "absent certification",
+    "wrong metal in opinion",
+    "wrong stone in opinion",
+    "currency in opinion",
+]
+
+
+def _adversarial_poison(category: int, product: Product) -> RationaleDraft:
+    """A forced hallucination of the given category — each is guaranteed to be blockable."""
+    pid = product.id
+    if category == 0:  # number/measurement smuggled into opinion
+        return RationaleDraft(
+            product_id=pid,
+            factual_slots=[FactRef(field="metal")],
+            subjective_clauses=["a breathtaking 9-carat centre stone"],
+        )
+    if category == 1:  # reference a certification the record does not have
+        return RationaleDraft(
+            product_id=pid,
+            factual_slots=[FactRef(field="certification")],
+            subjective_clauses=["timeless and elegant"],
+        )
+    if category == 2:  # a metal the item is not
+        wrong = "platinum" if product.metal != "platinum" else "silver"
+        return RationaleDraft(
+            product_id=pid,
+            factual_slots=[FactRef(field="metal")],
+            subjective_clauses=[f"the {wrong} setting is gorgeous"],
+        )
+    if category == 3:  # a stone the item does not have
+        owned = {product.stone_primary, product.stone_accent}
+        wrong = next(s for s in ["ruby", "emerald", "sapphire", "diamond"] if s not in owned)
+        return RationaleDraft(
+            product_id=pid,
+            factual_slots=[FactRef(field="metal")],
+            subjective_clauses=[f"the {wrong} adds a romantic glow"],
+        )
+    return RationaleDraft(  # currency/price smuggled into opinion
+        product_id=pid,
+        factual_slots=[FactRef(field="metal")],
+        subjective_clauses=["an absolute steal at ₹999"],
+    )
 
 
 def run_eval(
@@ -63,13 +110,9 @@ def run_eval(
         # Subjective relevance (LLM-as-judge estimate).
         relevance_scores.append(judge_relevance(profile, top, provider).score)
 
-        # Adversarial groundedness: a forced hallucination MUST be blocked.
-        poisoned = RationaleDraft(
-            product_id=top.product.id,
-            factual_slots=[FactRef(field="metal")],
-            subjective_clauses=["a breathtaking 9-carat centre stone"],
-            recommended=True,
-        )
+        # Adversarial groundedness: a forced hallucination MUST be blocked. Rotate the
+        # attack category across briefs so the rate spans all five, not one pattern.
+        poisoned = _adversarial_poison(adversarial_total % len(ADVERSARIAL_CATEGORIES), top.product)
         adversarial_total += 1
         if _VERIFIER.verify(poisoned, top.product, profile).decision == "blocked":
             adversarial_blocked += 1
@@ -115,9 +158,13 @@ def run_eval(
         if adversarial_total
         else None,
         "n_adversarial": adversarial_total,
+        "adversarial_categories": ADVERSARIAL_CATEGORIES,
         "adversarial_note": (
-            "self-authored attack set (numbers/wrong metal/stone/cert/over-budget smuggled into "
-            "opinion text); demonstrates known-pattern coverage, NOT robustness to all phrasings"
+            f"self-authored set: {adversarial_total} trials, one injected per brief, ROTATED "
+            f"across {len(ADVERSARIAL_CATEGORIES)} attack categories "
+            f"({', '.join(ADVERSARIAL_CATEGORIES)}). Demonstrates coverage of these KNOWN "
+            "patterns only — NOT robustness to all phrasings, and NOT to factual terms outside "
+            "the controlled vocabulary (those are not scanned)."
         ),
         # --- Subjective (estimate only; numbers are NULL on the offline provider so a fake
         #     judge score is never presented as a result) ---
@@ -143,7 +190,7 @@ def run_eval(
         },
         # --- Provenance ---
         "provider": settings.llm_provider,
-        "judge_model": "claude-sonnet-4-6" if real_judge else "deterministic-offline-fake",
+        "judge_model": TASK_MODEL["judge"] if real_judge else "deterministic-offline-fake",
         "embedder": (embedder or get_embedder()).name,
         "catalog_snapshot": ctx.snapshot_hash,
     }

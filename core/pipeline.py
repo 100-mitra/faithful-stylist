@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from core.config import load_catalog_dicts
+from core.config import get_settings, load_catalog_dicts
 from core.embed import Embedder, get_embedder
 from core.enrich import enrich_catalog, measure_tagging_accuracy
 from core.llm import LLMProvider, get_provider
@@ -99,4 +99,19 @@ def recommend(
 
 
 def tagging_accuracy(ctx: CatalogContext) -> dict:
-    return measure_tagging_accuracy(ctx.products, ctx.tags_by_id)
+    """Tagging agreement — suppressed offline (the fake tagger echoes the hint it's scored
+    against, so any number would be a tautology). Only emits a value on a real/cassette run.
+    """
+    if get_settings().llm_provider not in ("anthropic", "cassette"):
+        return {
+            "tagging_accuracy": None,
+            "n": 0,
+            "offline_placeholder": True,
+            "caveat": (
+                "OFFLINE PLACEHOLDER: the fake tagger echoes the style_hint it is then scored "
+                "against, so any number is a tautology. Run STYLIST_LLM=anthropic for a real "
+                "agreement number."
+            ),
+            "label_source": "synthetic style_hint (pseudo-label, not human-annotated)",
+        }
+    return {**measure_tagging_accuracy(ctx.products, ctx.tags_by_id), "offline_placeholder": False}

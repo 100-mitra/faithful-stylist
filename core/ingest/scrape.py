@@ -1,10 +1,13 @@
 """Responsible real-brand scraper (brief §7).
 
-Defaults to a Shopify storefront's public, structured ``/products.json`` endpoint
-(GIVA is Shopify and explicitly allows product crawling) — structured factual data, far
-gentler than scraping rendered HTML. Guardrails, all enforced here:
+Defaults to a Shopify storefront's public, structured ``/products.json`` endpoint —
+structured factual data, far gentler than scraping rendered HTML. The scraper fetches and
+honours each store's own robots.txt at runtime (with our descriptive User-Agent) before
+any request; we do not assert any brand's permission, we check it. Guardrails, all
+enforced here:
 
-  * respects robots.txt (urllib.robotparser, our descriptive User-Agent),
+  * respects robots.txt (urllib.robotparser, our descriptive User-Agent) and FAILS CLOSED
+    if robots.txt cannot be fetched/parsed (a 404 / no-robots is the only "allow" fallback),
   * rate-limits (>= 3s between requests, single thread),
   * caches every response to disk so a page is never re-fetched,
   * extracts ONLY the Section 5 factual fields (+ a thumbnail URL, not the bytes),
@@ -76,8 +79,11 @@ class Scraper:
         """Fetch robots.txt with OUR descriptive User-Agent and parse it.
 
         RobotFileParser.read() uses urllib's default UA, which some sites block (403),
-        causing it to (incorrectly) treat everything as disallowed. Fetching with our own
-        UA respects the standard: 404/empty -> allow all; 401/403 -> disallow all.
+        causing it to (incorrectly) treat everything as disallowed. We fetch with our own
+        UA and FAIL CLOSED on uncertainty: only a 404 (no robots.txt published, which the
+        standard treats as unrestricted) falls back to allow; any other failure
+        (401/403/5xx/network/parse) disallows, so a flaky or malformed robots.txt can never
+        silently disable the guard.
         """
         robots_url = urljoin(self.base_url + "/", "robots.txt")
         try:
@@ -86,12 +92,12 @@ class Scraper:
                 raw = resp.read()
             self._rp.parse(raw.decode("utf-8", "replace").splitlines())
         except HTTPError as exc:  # pragma: no cover - live network
-            if exc.code in (401, 403):
-                self._rp.disallow_all = True
+            if exc.code == 404:
+                self._rp.allow_all = True  # no robots.txt published -> unrestricted (standard)
             else:
-                self._rp.allow_all = True
-        except Exception:  # pragma: no cover - network/parse failure -> be permissive
-            self._rp.allow_all = True
+                self._rp.disallow_all = True  # 401/403/5xx -> cannot confirm policy: fail closed
+        except Exception:  # pragma: no cover - network/parse failure -> fail closed
+            self._rp.disallow_all = True
 
     def allowed(self, url: str) -> bool:
         return self._rp.can_fetch(USER_AGENT, url)
