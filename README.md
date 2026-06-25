@@ -9,6 +9,11 @@ factual claim not supported by the record is **blocked before it can reach the u
 Subjective style language ("reads as vintage to me") is allowed, but always **labelled as
 opinion**, never stated as a product fact.
 
+**▶ Live demo: https://faithful-stylist.onrender.com** — submit a brief, get ranked recs with a
+visible claims audit, tick **"inject a hallucinated claim"** to watch the verifier block it, and
+run the eval. Keyless and free (runs on the offline provider). Free tier spins down when idle, so
+the first request may cold-start for ~30–60s.
+
 > Scope: **Phase 0 + Phase 1** — a complete, shippable artifact. This is a portfolio/learning
 > project, not a production system. The evaluation is deliberately honest about its limits
 > (see **Limitations**).
@@ -210,7 +215,7 @@ in the Render dashboard.
 3. (Optional) Dashboard → Environment → set STYLIST_LLM=anthropic + ANTHROPIC_API_KEY.
 ```
 
-> Live demo URL: _added once deployed._
+> **Live demo: https://faithful-stylist.onrender.com** (deployed from this repo via `render.yaml`).
 
 ## Limitations (read these)
 
