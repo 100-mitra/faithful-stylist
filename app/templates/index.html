@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Faithful Stylist — grounded jewellery recommender</title>
+<style>
+  :root { --bg:#0f1115; --card:#191c23; --ink:#e8e6e1; --muted:#9aa0aa; --line:#2a2e37;
+          --good:#2ecc71; --bad:#ff5a5f; --accent:#c9a14a; --fact:#7db1ff; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+         background:var(--bg); color:var(--ink); }
+  header { padding:28px 24px 12px; max-width:980px; margin:0 auto; }
+  h1 { margin:0 0 4px; font-size:24px; }
+  h1 span { color:var(--accent); }
+  .sub { color:var(--muted); margin:0 0 6px; }
+  main { max-width:980px; margin:0 auto; padding:8px 24px 60px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px;
+          padding:16px 18px; margin:14px 0; }
+  textarea { width:100%; min-height:80px; background:#0d0f13; color:var(--ink);
+             border:1px solid var(--line); border-radius:8px; padding:10px; resize:vertical; }
+  .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-top:10px; }
+  button { background:var(--accent); color:#1a1a1a; border:0; border-radius:8px;
+           padding:9px 16px; font-weight:600; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--ink); border:1px solid var(--line); }
+  label.chk { color:var(--muted); display:flex; gap:6px; align-items:center; cursor:pointer; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px;
+          border:1px solid var(--line); color:var(--muted); margin-right:6px; }
+  .rec { border-left:3px solid var(--accent); }
+  .rec.blocked { border-left-color:var(--bad); }
+  .title { font-weight:600; }
+  .rationale { margin:6px 0 10px; }
+  .audit { display:grid; gap:5px; }
+  .claim { display:flex; gap:8px; align-items:baseline; font-size:13px;
+           border:1px solid var(--line); border-radius:6px; padding:6px 9px; }
+  .tag { font-size:11px; padding:1px 7px; border-radius:999px; white-space:nowrap; }
+  .tag.factual { background:rgba(125,177,255,.15); color:var(--fact); border:1px solid var(--fact); }
+  .tag.subjective { background:rgba(201,161,74,.15); color:var(--accent); border:1px solid var(--accent); }
+  .tag.grounded { color:var(--good); border:1px solid var(--good); }
+  .tag.blocked { color:var(--bad); border:1px solid var(--bad); font-weight:700; }
+  .note { color:var(--muted); font-style:italic; }
+  .muted { color:var(--muted); }
+  pre { white-space:pre-wrap; font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;
+        background:#0d0f13; border:1px solid var(--line); border-radius:8px; padding:12px; }
+  a { color:var(--accent); }
+  .banner { background:rgba(255,90,95,.12); border:1px solid var(--bad); color:#ffd3d4;
+            border-radius:8px; padding:8px 12px; margin:10px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>The <span>Faithful</span> Stylist</h1>
+  <p class="sub">A grounded jewellery recommender. Every <b>factual</b> claim (price, metal,
+     stone, carat) is templated from the catalog and verified — a fabricated claim is
+     <b>blocked before it reaches you</b>. Opinion is always labelled as opinion.</p>
+</header>
+<main>
+  <div class="card">
+    <textarea id="brief">Looking for an engagement ring with a vintage, romantic feel. Budget up to 1,50,000. I'd prefer platinum or white gold, ideally with a diamond.</textarea>
+    <div class="row">
+      <button onclick="recommend()">Recommend</button>
+      <button class="ghost" onclick="setBrief('Platinum only, nothing above 80,000. No gold at all.')">Adversarial brief</button>
+      <label class="chk"><input type="checkbox" id="demo"> demo: inject a hallucinated claim</label>
+      <span class="muted">top_k</span>
+      <input id="topk" type="number" value="4" min="1" max="10" style="width:56px;background:#0d0f13;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:4px;">
+    </div>
+  </div>
+
+  <div id="out"></div>
+
+  <div class="card">
+    <div class="row" style="margin:0;justify-content:space-between;">
+      <b>Honest evaluation</b>
+      <button class="ghost" onclick="runEval()">Run eval (N=12)</button>
+    </div>
+    <div id="eval" class="muted" style="margin-top:8px;">Objective metrics are measured; subjective relevance is reported only as an LLM-judge estimate with a caveat.</div>
+  </div>
+</main>
+
+<script>
+function setBrief(t){ document.getElementById('brief').value = t; }
+function esc(s){ return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+async function recommend(){
+  const out = document.getElementById('out');
+  out.innerHTML = '<div class="card muted">Thinking…</div>';
+  const body = {
+    text: document.getElementById('brief').value,
+    top_k: parseInt(document.getElementById('topk').value || '4', 10),
+    demo_hallucination: document.getElementById('demo').checked
+  };
+  const r = await fetch('/api/recommend', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  const data = await r.json();
+  out.innerHTML = render(data);
+}
+
+function render(data){
+  const p = data.profile;
+  let html = '';
+  if (data.blocked_any) html += '<div class="banner">⛔ The grounding verifier blocked at least one fabricated factual claim below — it never reached the rationale text.</div>';
+  html += '<div class="card"><b>Parsed preferences</b><div class="row" style="margin-top:8px;">'
+    + chip('budget', p.budget_max ? '₹'+p.budget_max.toLocaleString('en-IN') : '—')
+    + chip('occasion', p.occasion || '—')
+    + chip('styles', (p.styles||[]).join(', ') || '—')
+    + chip('metals', (p.metal_prefs||[]).join(', ') || '—')
+    + chip('stones', (p.stone_prefs||[]).join(', ') || '—')
+    + '</div>';
+  if (p.needs_clarification) html += '<div class="muted" style="margin-top:8px;">Cold-start: '+esc(p.clarifying_question)+'</div>';
+  html += '</div>';
+
+  for (const rec of data.recommendations){
+    const blocked = rec.grounding_decision === 'blocked';
+    html += '<div class="card rec'+(blocked?' blocked':'')+'">';
+    html += '<div class="title">#'+rec.rank+' '+esc(rec.product.title)+' <span class="muted">['+esc(rec.product.id)+']</span></div>';
+    html += '<div class="rationale">'+esc(rec.rationale)+'</div>';
+    html += '<div class="muted" style="font-size:12px;margin-bottom:6px;">claims audit ('+rec.grounding_decision+')</div>';
+    html += '<div class="audit">';
+    for (const c of rec.claims_audit){
+      const status = c.blocked ? 'blocked' : (c.grounded ? 'grounded' : 'ungrounded');
+      html += '<div class="claim">'
+        + '<span class="tag '+c.claim_type+'">'+c.claim_type+'</span>'
+        + '<span class="tag '+(c.blocked?'blocked':'grounded')+'">'+status+'</span>'
+        + '<span>'+esc(c.claim_text)+'</span>'
+        + (c.note ? '<span class="note">— '+esc(c.note)+'</span>' : '')
+        + '</div>';
+    }
+    html += '</div></div>';
+  }
+  return html;
+}
+function chip(k,v){ return '<span class="pill">'+k+': '+esc(v)+'</span>'; }
+
+async function runEval(){
+  const el = document.getElementById('eval');
+  el.innerHTML = 'Running eval…';
+  const r = await fetch('/api/eval/run', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({n:12, top_k:3})});
+  const data = await r.json();
+  el.innerHTML = '<pre>'+esc(data.report)+'</pre>';
+}
+</script>
+</body>
+</html>

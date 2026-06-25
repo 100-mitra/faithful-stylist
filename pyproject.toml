@@ -34,6 +34,7 @@ voyage = ["voyageai>=0.2"]
 dev = ["pytest>=8.0", "ruff>=0.4", "anthropic>=0.40"]
 
 [tool.hatch.build.targets.wheel]
+# Hatchling ships all files inside these package dirs (including app/templates/*.html).
 packages = ["app", "core", "eval"]
 
 [tool.ruff]
