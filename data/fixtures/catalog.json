@@ -1726,5 +1726,135 @@
       "collection": "Kalindi"
     },
     "ingested_at": "2026-01-01T00:00:00+00:00"
+  },
+  {
+    "id": "anc-0001",
+    "source": "synthetic",
+    "source_url": "synthetic://catalog/anc-0001",
+    "title": "Platinum Vintage Diamond Ring",
+    "price": 98000,
+    "currency": "INR",
+    "metal": "platinum",
+    "stone_primary": "diamond",
+    "stone_accent": null,
+    "carat": 0.5,
+    "category": "ring",
+    "image_path": null,
+    "raw_attributes": {
+      "description": "A vintage ring crafted in platinum set with a diamond. Designed with engagement in mind.",
+      "style_hint": "vintage",
+      "occasion_hint": "engagement",
+      "collection": "Atelier"
+    },
+    "ingested_at": "2026-01-01T00:00:00+00:00"
+  },
+  {
+    "id": "anc-0002",
+    "source": "synthetic",
+    "source_url": "synthetic://catalog/anc-0002",
+    "title": "White Gold Romantic Diamond Ring",
+    "price": 64000,
+    "currency": "INR",
+    "metal": "white gold",
+    "stone_primary": "diamond",
+    "stone_accent": null,
+    "carat": 0.3,
+    "category": "ring",
+    "image_path": null,
+    "raw_attributes": {
+      "description": "A romantic ring crafted in white gold set with a diamond. Designed with engagement in mind.",
+      "style_hint": "romantic",
+      "occasion_hint": "engagement",
+      "collection": "Atelier",
+      "gold_purity": "18k"
+    },
+    "ingested_at": "2026-01-01T00:00:00+00:00"
+  },
+  {
+    "id": "anc-0003",
+    "source": "synthetic",
+    "source_url": "synthetic://catalog/anc-0003",
+    "title": "Rose Gold Romantic Ruby Ring",
+    "price": 72000,
+    "currency": "INR",
+    "metal": "rose gold",
+    "stone_primary": "ruby",
+    "stone_accent": "diamond",
+    "carat": 0.7,
+    "category": "ring",
+    "image_path": null,
+    "raw_attributes": {
+      "description": "A romantic ring crafted in rose gold set with a ruby. Designed with wedding in mind.",
+      "style_hint": "romantic",
+      "occasion_hint": "wedding",
+      "collection": "Atelier",
+      "gold_purity": "18k"
+    },
+    "ingested_at": "2026-01-01T00:00:00+00:00"
+  },
+  {
+    "id": "anc-0004",
+    "source": "synthetic",
+    "source_url": "synthetic://catalog/anc-0004",
+    "title": "Yellow Gold Statement Emerald Necklace",
+    "price": 98000,
+    "currency": "INR",
+    "metal": "yellow gold",
+    "stone_primary": "emerald",
+    "stone_accent": null,
+    "carat": 0.5,
+    "category": "necklace",
+    "image_path": null,
+    "raw_attributes": {
+      "description": "A statement necklace crafted in yellow gold set with a emerald. Designed with festive in mind.",
+      "style_hint": "statement",
+      "occasion_hint": "festive",
+      "collection": "Atelier",
+      "gold_purity": "18k"
+    },
+    "ingested_at": "2026-01-01T00:00:00+00:00"
+  },
+  {
+    "id": "anc-0005",
+    "source": "synthetic",
+    "source_url": "synthetic://catalog/anc-0005",
+    "title": "White Gold Minimalist Pendant",
+    "price": 19500,
+    "currency": "INR",
+    "metal": "white gold",
+    "stone_primary": null,
+    "stone_accent": null,
+    "carat": null,
+    "category": "pendant",
+    "image_path": null,
+    "raw_attributes": {
+      "description": "A minimalist pendant crafted in white gold. Designed with gift in mind.",
+      "style_hint": "minimalist",
+      "occasion_hint": "gift",
+      "collection": "Atelier",
+      "gold_purity": "18k"
+    },
+    "ingested_at": "2026-01-01T00:00:00+00:00"
+  },
+  {
+    "id": "anc-0006",
+    "source": "synthetic",
+    "source_url": "synthetic://catalog/anc-0006",
+    "title": "Silver Minimalist Earrings",
+    "price": 4500,
+    "currency": "INR",
+    "metal": "silver",
+    "stone_primary": null,
+    "stone_accent": null,
+    "carat": null,
+    "category": "earrings",
+    "image_path": null,
+    "raw_attributes": {
+      "description": "A minimalist earrings crafted in silver. Designed with office in mind.",
+      "style_hint": "minimalist",
+      "occasion_hint": "office",
+      "collection": "Atelier"
+    },
+    "ingested_at": "2026-01-01T00:00:00+00:00"
   }
 ]

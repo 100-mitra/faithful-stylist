@@ -71,8 +71,125 @@ def _description(metal: str, style: str, stone: str | None, category: str, occas
     )
 
 
+def _anchor(
+    idx: int,
+    *,
+    metal: str,
+    style: str,
+    stone: str | None,
+    carat: float | None,
+    category: str,
+    price: int,
+    occasion: str,
+    stone_accent: str | None = None,
+) -> dict:
+    raw: dict = {
+        "description": _description(metal, style, stone, category, occasion),
+        "style_hint": style,
+        "occasion_hint": occasion,
+        "collection": "Atelier",
+    }
+    if metal in GOLD_METALS:
+        raw["gold_purity"] = "18k"
+    pid = f"anc-{idx:04d}"
+    return {
+        "id": pid,
+        "source": "synthetic",
+        "source_url": f"synthetic://catalog/{pid}",
+        "title": _title(metal, style, stone, category),
+        "price": price,
+        "currency": "INR",
+        "metal": metal,
+        "stone_primary": stone,
+        "stone_accent": stone_accent,
+        "carat": carat,
+        "category": category,
+        "image_path": None,
+        "raw_attributes": raw,
+        "ingested_at": INGESTED_AT,
+    }
+
+
+def anchor_products() -> list[dict]:
+    """Hand-curated, believably-priced anchors that GUARANTEE an in-budget match for each
+    seeded demo brief (so the demo never depends on the RNG surfacing a good option).
+
+    Prices follow the same INR logic as ``_price`` (e.g. a 0.50ct diamond solitaire in
+    platinum ~₹98k) so they read as plausible, not planted.
+    """
+    return [
+        # demo-engagement: vintage/romantic platinum-or-white-gold diamond ring <= 1,50,000
+        _anchor(
+            1,
+            metal="platinum",
+            style="vintage",
+            stone="diamond",
+            carat=0.50,
+            category="ring",
+            price=98000,
+            occasion="engagement",
+        ),
+        _anchor(
+            2,
+            metal="white gold",
+            style="romantic",
+            stone="diamond",
+            carat=0.30,
+            category="ring",
+            price=64000,
+            occasion="engagement",
+        ),
+        # ruby-romantic: rose gold ruby ring for an anniversary, ~90,000
+        _anchor(
+            3,
+            metal="rose gold",
+            style="romantic",
+            stone="ruby",
+            carat=0.70,
+            category="ring",
+            price=72000,
+            occasion="wedding",
+            stone_accent="diamond",
+        ),
+        # festive-gold: statement festive yellow-gold piece, ~1,00,000
+        _anchor(
+            4,
+            metal="yellow gold",
+            style="statement",
+            stone="emerald",
+            carat=0.50,
+            category="necklace",
+            price=98000,
+            occasion="festive",
+        ),
+        # gift-daily: delicate minimalist pendant under 30,000
+        _anchor(
+            5,
+            metal="white gold",
+            style="minimalist",
+            stone=None,
+            carat=None,
+            category="pendant",
+            price=19500,
+            occasion="gift",
+        ),
+        # silver-minimalist: minimalist silver earrings for the office under 8,000
+        _anchor(
+            6,
+            metal="silver",
+            style="minimalist",
+            stone=None,
+            carat=None,
+            category="earrings",
+            price=4500,
+            occasion="office",
+        ),
+    ]
+
+
 def generate_catalog(n: int = 80, seed: int = 7) -> list[dict]:
-    """Generate ``n`` synthetic Product records as plain dicts (deterministic)."""
+    """Generate ``n`` synthetic Product records as plain dicts (deterministic), plus a
+    fixed set of curated anchors guaranteeing in-budget matches for the demo briefs."""
     rng = random.Random(seed)
     items: list[dict] = []
     for i in range(n):
@@ -127,6 +244,7 @@ def generate_catalog(n: int = 80, seed: int = 7) -> list[dict]:
                 "ingested_at": INGESTED_AT,
             }
         )
+    items.extend(anchor_products())
     return items
 
 

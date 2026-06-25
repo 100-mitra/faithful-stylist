@@ -14,12 +14,12 @@ from core.config import get_settings, load_catalog_dicts
 from core.embed import Embedder, get_embedder
 from core.enrich import enrich_catalog, measure_tagging_accuracy
 from core.llm import LLMProvider, get_provider
-from core.models import PreferenceProfile, Product, Recommendation, StyleTags
+from core.models import PreferenceProfile, Product, RationaleClaim, Recommendation, StyleTags
 from core.profile import parse_preference
 from core.rationale import build_rationale
 from core.rerank import rerank
-from core.retrieve import retrieve
-from core.store import init_db, make_engine, seed_catalog
+from core.retrieve import preference_disclosure, retrieve
+from core.store import init_db, make_engine, query_products, seed_catalog
 
 
 @dataclass
@@ -79,19 +79,48 @@ def recommend(
     embedder = embedder or get_embedder()
 
     profile = parse_preference(raw_text, provider, embedder)
+    # Full hard-filtered survivor set — used to tell "nothing in the constrained catalog
+    # matches this preference" (a genuine substitution) from "a match exists elsewhere".
+    survivors = query_products(ctx.engine, profile)
     candidates = retrieve(profile, ctx.engine, embedder, ctx.tags_by_id, top_k=max(top_k * 3, 15))
     ranked = rerank(profile, candidates, provider, top_k=top_k)
 
     recs: list[Recommendation] = []
     for rank, (product, scores) in enumerate(ranked, start=1):
         verdict = build_rationale(profile, product, provider)
+        rationale = verdict.rationale_text
+        claims = verdict.claims
+
+        # Faithfulness extended to UNMET preferences: if the item misses an explicit
+        # stone/metal preference, SAY SO (grounded, deterministic) rather than silently
+        # substituting. The disclosure is code-generated truth, so it is grounded.
+        disclosure, gaps = preference_disclosure(profile, product, survivors)
+        if disclosure:
+            none_avail = any(g["none_in_catalog"] for g in gaps)
+            note = (
+                "honest substitution: no in-budget catalog item matches this stated preference"
+                if none_avail
+                else "faithful disclosure: a match exists at a higher rank; this is complementary"
+            )
+            rationale = f"{disclosure} {rationale}"
+            claims = [
+                RationaleClaim(
+                    claim_text=disclosure,
+                    claim_type="factual",
+                    grounded=True,
+                    source_field="preference_gap",
+                    note=note,
+                ),
+                *claims,
+            ]
+
         recs.append(
             Recommendation(
                 product=product,
                 rank=rank,
                 retrieval_scores=scores,
-                rationale=verdict.rationale_text,
-                claims=verdict.claims,
+                rationale=rationale,
+                claims=claims,
                 grounding_decision=verdict.decision,
             )
         )
