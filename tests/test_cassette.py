@@ -56,9 +56,11 @@ def test_cassette_reproduces_recorded_real_numbers(cassette_env):
         rm["pairwise_prompt_iteration"]["variant_b_win_rate"]
         == em["pairwise_prompt_iteration"]["variant_b_win_rate"]
     )
-    # Structural guarantees hold under replay too.
-    assert rm["groundedness_rate"] == 1.0
-    assert rm["constraint_satisfaction_rate"] == 1.0
-    assert rm["adversarial_grounding_block_rate"] == 1.0
+    # Structural metrics reproduce the recorded values exactly under replay. (Groundedness
+    # on a real run is < 1.0 — the verifier blocks some of the model's attempted claims — so
+    # assert reproduction of the recorded number, not a hardcoded 1.0.)
+    assert rm["groundedness_rate"] == em["groundedness_rate"]
+    assert rm["constraint_satisfaction_rate"] == em["constraint_satisfaction_rate"]
+    assert rm["adversarial_grounding_block_rate"] == em["adversarial_grounding_block_rate"]
     # Real tagging accuracy reproduces.
     assert tagging_accuracy(ctx)["tagging_accuracy"] == expected["tagging"]["tagging_accuracy"]

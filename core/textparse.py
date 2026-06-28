@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import re
 
-from core.models import HardConstraints, ProfileDraft, StyleTagDraft
+from core.models import ProfileDraft, StyleTagDraft
 from core.vocab import METALS, OCCASIONS, STONES, STYLES
 
 GOLDS = ["yellow gold", "white gold", "rose gold"]
@@ -210,18 +210,16 @@ def parse_profile_text(raw_text: str) -> ProfileDraft:
 
     return ProfileDraft(
         styles=styles,
-        occasion=occasion,
-        budget_max=parse_budget(raw_text),
+        occasion=occasion or "",
+        budget_max=parse_budget(raw_text) or 0,
         metal_prefs=metal_prefs,
         stone_prefs=stone_prefs,
-        recipient=parse_recipient(text),
-        hard_constraints=HardConstraints(
-            allowed_metals=allowed_metals,
-            excluded_metals=excluded_metals,
-            excluded_stones=excluded_stones,
-            require_no_stone=require_no_stone,
-            categories=categories,
-        ),
+        recipient=parse_recipient(text) or "",
+        allowed_metals=allowed_metals,
+        excluded_metals=excluded_metals,
+        excluded_stones=excluded_stones,
+        require_no_stone=require_no_stone,
+        categories=categories,
     )
 
 

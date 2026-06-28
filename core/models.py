@@ -15,12 +15,14 @@ value is rendered from the record in code and audited by the GroundingVerifier.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, get_args
 
 from pydantic import BaseModel, Field
 from sqlalchemy import JSON, Column
 from sqlmodel import Field as SQLField
 from sqlmodel import SQLModel
+
+from core.vocab import CATEGORIES, METALS, STONES, STYLES
 
 # Which factual fields a rationale is allowed to *reference* (never to value-fill).
 FactField = Literal[
@@ -34,6 +36,23 @@ FactField = Literal[
     "under_budget",
 ]
 ClaimType = Literal["factual", "subjective"]
+
+# Controlled-vocab enums for the LLM parse schema. Constraining each list's items to a
+# finite enum keeps the structured-output grammar small: an array of *arbitrary* strings
+# across many fields makes the grammar compiler time out ("Grammar compilation timed out").
+# Derived from the single source of truth in core.vocab and drift-guarded below.
+MetalLiteral = Literal["yellow gold", "white gold", "rose gold", "platinum", "silver"]
+StoneLiteral = Literal["diamond", "ruby", "emerald", "sapphire", "pearl", "amethyst", "topaz"]
+StyleLiteral = Literal[
+    "vintage", "minimalist", "boho", "statement", "classic", "modern", "romantic", "delicate"
+]
+CategoryLiteral = Literal[
+    "ring", "pendant", "earrings", "necklace", "bracelet", "bangle", "nose pin"
+]
+assert set(get_args(MetalLiteral)) == set(METALS), "MetalLiteral drifted from vocab.METALS"
+assert set(get_args(StoneLiteral)) == set(STONES), "StoneLiteral drifted from vocab.STONES"
+assert set(get_args(StyleLiteral)) == set(STYLES), "StyleLiteral drifted from vocab.STYLES"
+assert set(get_args(CategoryLiteral)) == set(CATEGORIES), "CategoryLiteral drifted from vocab"
 
 
 # ---------------------------------------------------------------------------
@@ -115,15 +134,26 @@ class PreferenceProfile(BaseModel):
 
 
 class ProfileDraft(BaseModel):
-    """Structured output the LLM preference-parse step returns (pre-embedding)."""
+    """Structured output the LLM preference-parse step returns (pre-embedding).
 
-    styles: list[str] = Field(default_factory=list)
-    occasion: str | None = None
-    budget_max: int | None = None
-    metal_prefs: list[str] = Field(default_factory=list)
-    stone_prefs: list[str] = Field(default_factory=list)
-    recipient: str | None = None
-    hard_constraints: HardConstraints = Field(default_factory=HardConstraints)
+    Deliberately FLAT with no nullable unions or nested objects: a nested/optional-heavy
+    schema trips the structured-output API ("Schema is too complex"). Empty string / 0 mean
+    "unspecified"; profile.py maps those to None and rebuilds the rich HardConstraints.
+    """
+
+    styles: list[StyleLiteral] = Field(default_factory=list)
+    occasion: str = ""
+    budget_max: int = 0  # 0 => no budget stated
+    metal_prefs: list[MetalLiteral] = Field(default_factory=list)  # soft preference (boost)
+    stone_prefs: list[StoneLiteral] = Field(default_factory=list)  # soft preference (boost)
+    recipient: str = ""
+    # Hard constraints, inlined (mapped back into HardConstraints in profile.py):
+    allowed_metals: list[MetalLiteral] = Field(default_factory=list)  # "platinum only"
+    excluded_metals: list[MetalLiteral] = Field(default_factory=list)  # "no gold"
+    allowed_stones: list[StoneLiteral] = Field(default_factory=list)
+    excluded_stones: list[StoneLiteral] = Field(default_factory=list)
+    require_no_stone: bool = False
+    categories: list[CategoryLiteral] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------

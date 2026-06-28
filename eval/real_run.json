@@ -1,0 +1,56 @@
+{
+  "recorded_n": 10,
+  "top_k": 3,
+  "budget_usd": 1.5,
+  "eval": {
+    "id": "eval-b6da8e681333",
+    "dataset_ref": "generated:eval_briefs(n=10)",
+    "metrics": {
+      "n_briefs": 10,
+      "groundedness_rate": 0.9302,
+      "n_factual_claims": 172,
+      "constraint_satisfaction_rate": 1.0,
+      "retrieval_validity_rate": 1.0,
+      "n_returned_items": 29,
+      "constraint_note": "measured against the PARSED profile; natural-language -> structured parsing errors are a separate, upstream concern not captured here",
+      "adversarial_grounding_block_rate": 1.0,
+      "n_adversarial": 10,
+      "adversarial_categories": [
+        "carat/number in opinion",
+        "absent certification",
+        "wrong metal in opinion",
+        "wrong stone in opinion",
+        "currency in opinion"
+      ],
+      "adversarial_note": "self-authored set: 10 trials, one injected per brief, ROTATED across 5 attack categories (carat/number in opinion, absent certification, wrong metal in opinion, wrong stone in opinion, currency in opinion). Demonstrates coverage of these KNOWN patterns only — NOT robustness to all phrasings, and NOT to factual terms outside the controlled vocabulary (those are not scanned).",
+      "subjective_relevance": {
+        "mean_score_1to5": 3.4,
+        "n": 10,
+        "scale": "1-5 (LLM-as-judge)",
+        "judge_prompt": "You are judging how relevant a jewellery recommendation is to a shopper's request, on a 1-5 scale (5 = perfect fit). Consider style, occasion, metal/stone preference and budget. Return a score and whether it is relevant.",
+        "offline_placeholder": false,
+        "caveat": "LLM-as-judge estimate over a small self-built brief set. This is NOT validated relevance accuracy: there is no human ground truth and the judge is itself an LLM. Treat as directional only."
+      },
+      "pairwise_prompt_iteration": {
+        "variant_b_win_rate": 0.9,
+        "n": 10,
+        "method": "randomized order-shuffled pairwise (position bias neutralized)",
+        "variants": "v1 (concise) vs v2 (occasion-enriched)",
+        "offline_placeholder": false
+      },
+      "provider": "anthropic",
+      "judge_model": "claude-sonnet-4-6",
+      "embedder": "hashing-tf-512",
+      "catalog_snapshot": "38f47edbf2f2ca2c"
+    },
+    "cost_usd": 0.291781,
+    "created_at": "2026-06-28T01:34:43.222112+00:00"
+  },
+  "report": "# Eval report — eval-b6da8e681333\nDataset: generated:eval_briefs(n=10)  |  Provider: anthropic  |  Embedder: hashing-tf-512  |  Cost: $0.2918\n\n## Structural guarantees (provider-independent — deterministic code, NOT accuracy)\n- Factual claims grounded in output: 93.0% (N=172 claims) — by construction (facts rendered from the record)\n- Hard-constraint satisfaction: 100.0% (N=29 items) — vs the PARSED profile (measured against the PARSED profile; natural-language -> structured parsing errors are a separate, upstream concern not captured here)\n- Retrieval validity: 100.0% (N=29)\n- Adversarial grounding block rate: 100.0% (N=10 injected) — self-authored set: 10 trials, one injected per brief, ROTATED across 5 attack categories (carat/number in opinion, absent certification, wrong metal in opinion, wrong stone in opinion, currency in opinion). Demonstrates coverage of these KNOWN patterns only — NOT robustness to all phrasings, and NOT to factual terms outside the controlled vocabulary (those are not scanned).\n\n## Subjective relevance (LLM-as-judge ESTIMATE — never validated accuracy)\n- Mean LLM-judge score: 3.4/5 (N=10, judge=claude-sonnet-4-6)\n- Caveat: LLM-as-judge estimate over a small self-built brief set. This is NOT validated relevance accuracy: there is no human ground truth and the judge is itself an LLM. Treat as directional only.\n\n## Prompt iteration\n- Variant B win rate: 90.0% (N=10, randomized order-shuffled pairwise (position bias neutralized); v1 (concise) vs v2 (occasion-enriched))",
+  "tagging": {
+    "tagging_accuracy": 1.0,
+    "n": 86,
+    "label_source": "synthetic style_hint (pseudo-label, not human-annotated)",
+    "offline_placeholder": false
+  }
+}

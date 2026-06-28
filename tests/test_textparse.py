@@ -28,18 +28,18 @@ def test_parse_budget(text, expected):
 def test_platinum_only_no_gold():
     d = parse_profile_text("Platinum only, nothing above 80,000. No gold at all.")
     assert d.budget_max == 80000
-    assert d.hard_constraints.allowed_metals == ["platinum"]
+    assert d.allowed_metals == ["platinum"]
     # gold must be excluded and never allowed
-    assert set(d.hard_constraints.excluded_metals) == {"rose gold", "white gold", "yellow gold"}
-    assert "platinum" not in d.hard_constraints.excluded_metals
+    assert set(d.excluded_metals) == {"rose gold", "white gold", "yellow gold"}
+    assert "platinum" not in d.excluded_metals
 
 
 def test_no_gemstones_plain():
     d = parse_profile_text("A modern plain metal bangle, no gemstones, under 60,000.")
-    assert d.hard_constraints.require_no_stone is True
+    assert d.require_no_stone is True
     assert "modern" in d.styles
     assert d.budget_max == 60000
-    assert d.hard_constraints.categories == ["bangle"]
+    assert d.categories == ["bangle"]
 
 
 def test_metal_and_stone_preferences_are_soft():
@@ -53,11 +53,11 @@ def test_metal_and_stone_preferences_are_soft():
     assert set(d.metal_prefs) == {"platinum", "white gold"}
     assert d.stone_prefs == ["diamond"]
     # "prefer" / "ideally" are soft — no hard allow-list, nothing excluded.
-    assert d.hard_constraints.allowed_metals == []
-    assert d.hard_constraints.categories == ["ring"]
+    assert d.allowed_metals == []
+    assert d.categories == ["ring"]
 
 
 def test_category_word_boundary_does_not_false_match():
     # "earrings" contains "ring" but must not be parsed as a ring.
     d = parse_profile_text("minimalist silver earrings for office")
-    assert d.hard_constraints.categories == ["earrings"]
+    assert d.categories == ["earrings"]

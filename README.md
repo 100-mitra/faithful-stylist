@@ -106,18 +106,16 @@ distinction — it is the whole point of the project.
 ### A. Structural guarantees (provider-independent)
 
 These come from **deterministic code** — the grounding verifier and the SQL filters — **not
-from model accuracy**. They are provider-independent by construction; the figures below are
-from the reproducible **offline (`fake`) run** (`POST /api/eval/run {"n":40,"top_k":3}` on the
-committed fixture) and will be re-confirmed when a real `anthropic` run is recorded. They are
-guarantees about the *architecture*, not claims that the LLM is accurate or that the
-recommendations are good.
+from model accuracy**. They are provider-independent by construction (measured offline at N=40
+and **reconfirmed on the real `anthropic` run** below). They are guarantees about the
+*architecture*, not claims that the LLM is accurate or that the recommendations are good.
 
 | Guarantee | Result | N | What it means — and what it does **not** |
 |---|---|---|---|
-| Factual claims grounded in output | 100% | 559 claims | **By construction**: factual text is rendered from the record, so a fabricated value cannot appear in the templated path. This is structural, not a measure of model accuracy. |
-| Hard-constraint satisfaction | 100% | 114 items | Enforced by SQL, re-checked per returned item — **against the _parsed_ profile** (see caveats). |
-| Retrieval validity | 100% | 114 items | Every returned item satisfies all parsed hard constraints. |
-| Adversarial grounding block rate | 100% | 40 injected | The verifier blocks every injected hallucination — one per brief, **rotated** across 5 self-authored attack categories (carat/number, wrong metal, wrong stone, absent certification, currency-in-opinion). See caveat: known patterns, not robustness. |
+| Output groundedness (no fabricated factual claim reaches the user) | 100% **by construction** | — | Factual text is code-rendered from the record; any claim the verifier can't support is removed before output. The real LLM *does* attempt unsupported claims — the verifier's measured catch rate is in §B. |
+| Hard-constraint satisfaction | 100% | 114 offline / 29 real | Enforced by SQL, re-checked per returned item — **against the _parsed_ profile** (see caveats). |
+| Retrieval validity | 100% | 114 offline / 29 real | Every returned item satisfies all parsed hard constraints. |
+| Adversarial grounding block rate | 100% | 40 offline / 10 real | The verifier blocks every injected hallucination — one per brief, **rotated** across 5 self-authored attack categories (carat/number, wrong metal, wrong stone, absent certification, currency-in-opinion). See caveat: known patterns, not robustness. |
 
 Caveats — these bound what the 100%s actually claim:
 - **"Grounded" ≠ "accurate" ≠ "good."** Groundedness means no *unsupported* factual claim
@@ -127,31 +125,28 @@ Caveats — these bound what the 100%s actually claim:
   structured parsing is a separate, upstream error source **not** captured by this number: if
   the parser misreads "no gold," retrieval cannot filter what it never parsed. Parsing quality
   is a distinct (and unmeasured-here) concern.
-- **The adversarial set is self-authored (N=40) and covers _known_ attack patterns.** A 100%
-  block rate shows the verifier catches the attacks I designed; it is **not** a proof of
-  robustness. The scan only recognises the controlled vocabulary (a fixed metal/stone/cert set
-  + a numeric/currency regex), so a factual term *outside* it (moissanite, palladium, titanium,
+- **The adversarial set is self-authored and covers _known_ attack patterns.** A 100% block
+  rate shows the verifier catches the attacks I designed; it is **not** a proof of robustness.
+  The scan only recognises the controlled vocabulary (a fixed metal/stone/cert set + a
+  numeric/currency regex), so a factual term *outside* it (moissanite, palladium, titanium,
   lab-grown, gold-plated, an out-of-list stone) is **not** detected, and a true-but-misleading
   claim is not caught. It is a floor of demonstrated coverage, not a robustness guarantee.
 
-### B. Subjective / model-dependent numbers — _pending a real run_
+### B. Real `anthropic` run — measured numbers
 
-These require a real LLM and are **deliberately not reported from the offline provider** (the
-fake judge and tagger are deterministic placeholders, so any number from them would be
-meaningless dressed up as a result). They will be filled in from **one small, cost-capped
-`anthropic` run**, each as an estimate with N and an explicit caveat:
+From **one small, cost-capped run**: N=10 self-built briefs, `claude-haiku-4-5` (tagging/parse)
++ `claude-sonnet-4-6` (rerank/rationale/judge), **total cost $0.29**. Every response is recorded
+as a cassette (`eval/cassettes/`, committed) and `tests/test_cassette.py` replays them so these
+numbers reproduce in CI with no key and no further spend. Reproduce locally:
+`STYLIST_LLM=cassette pytest tests/test_cassette.py`.
 
-| Metric | Status | How it will be reported |
+| Metric | Value (N) | What it is — and the caveat |
 |---|---|---|
-| Subjective relevance | _pending real run_ | LLM-as-judge **estimate** with N, the judge prompt, and a "not validated accuracy" caveat. |
-| Prompt-iteration pairwise win rate | _pending real run_ | Randomized order-shuffled pairwise (position-bias neutralized), with N. |
-| Enrichment tagging agreement | _pending real run_ | Real inference vs the synthetic `style_hint` **pseudo-label** (not human-annotated), N=80. |
-| Eval cost (USD) | _pending real run_ | Actual per-token cost of the capped run. |
-
-> Reproducibility (once the real run is recorded via `python -m eval.record`): its responses
-> will be saved as cassettes under `eval/cassettes/`, and `tests/test_cassette.py` — currently
-> **skipped** until that run exists — will replay them so the subjective numbers reproduce with
-> no key and no further spend. **No cassettes or subjective numbers are published yet.**
+| **Verifier catch rate on real-LLM output** | **12 / 172 attempted factual claims blocked** (93.0% grounded) | The real model *attempted* 172 factual references; the deterministic verifier blocked 12 unsupported ones (e.g. a certification the item lacks) so **none reached the user**. This is the real-world payoff of the grounding layer — it catches the model's own organic errors, not just the injected ones. |
+| Subjective relevance | 3.4 / 5 (N=10) | **LLM-as-judge estimate, NOT validated accuracy** — an LLM scoring an LLM over a tiny self-built set with no human ground truth. Directional only. Judge prompt is in `eval/real_run.json`. |
+| Prompt-iteration pairwise win rate | 90% to v2 (N=10) | v2 (occasion-enriched) vs v1 (concise), **randomized order-shuffled** to neutralize position bias. Tiny N — directional evidence that the prompt change helped, not a precise effect size. |
+| Enrichment tagging agreement | 100% (N=86) | **Near-tautological, do not read as real accuracy:** the synthetic description contains the style word verbatim, so the model trivially recovers it. A real tagging-accuracy number needs human-labelled data (out of scope here). Reported only to show the enrichment path runs end-to-end on a real model. |
+| Eval cost | $0.29 | One capped run; the cap (`STYLIST_LLM_BUDGET_USD`) aborts before overspending. |
 
 ## Faithfulness & evaluation guarantees (the §4 contract)
 

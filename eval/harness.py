@@ -226,8 +226,10 @@ def format_report(run: EvalRun) -> str:
         f"Embedder: {m['embedder']}  |  Cost: ${run.cost_usd:.4f}",
         "",
         "## Structural guarantees (provider-independent — deterministic code, NOT accuracy)",
-        f"- Factual claims grounded in output: {pct(m['groundedness_rate'])} "
-        f"(N={m['n_factual_claims']} claims) — by construction (facts rendered from the record)",
+        f"- Factual claims that passed the verifier: {pct(m['groundedness_rate'])} "
+        f"(N={m['n_factual_claims']} attempted) — blocked claims are removed before output, so "
+        "output groundedness is 100% by construction; this rate is how often the model's "
+        "attempted factual references were already supported",
         f"- Hard-constraint satisfaction: {pct(m['constraint_satisfaction_rate'])} "
         f"(N={m['n_returned_items']} items) — vs the PARSED profile ({m['constraint_note']})",
         f"- Retrieval validity: {pct(m['retrieval_validity_rate'])} (N={m['n_returned_items']})",
