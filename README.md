@@ -164,6 +164,9 @@ Reported only from the real run, always as estimates with N and a caveat:
 
 ## Phase 2 — Visual search (CLIP)
 
+**▶ Live:** the upload box on the demo runs this — **https://faithful-stylist.onrender.com**
+(`POST /api/recommend/visual`, verified live: returns grounded recs on the `color` embedder).
+
 Upload an inspiration image → **visually similar** catalog items, optionally **fused with a
 text brief** — and the recommendations are *still grounded* (visual similarity only orders
 candidates; every factual claim is templated from the record and audited). Endpoint:
