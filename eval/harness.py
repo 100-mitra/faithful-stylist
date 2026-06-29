@@ -143,6 +143,8 @@ def run_eval(
         # --- Structural guarantees (provider-independent; deterministic code, not accuracy) ---
         "groundedness_rate": round(grounded_factual / total_factual, 4) if total_factual else None,
         "n_factual_claims": total_factual,
+        "n_factual_grounded": grounded_factual,
+        "n_factual_blocked": total_factual - grounded_factual,
         "constraint_satisfaction_rate": round(constraint_ok / constraint_checks, 4)
         if constraint_checks
         else None,
@@ -220,16 +222,20 @@ def format_report(run: EvalRun) -> str:
     def pct(x):
         return "n/a" if x is None else f"{x * 100:.1f}%"
 
+    blocked = m.get("n_factual_blocked", 0)
+    attempted = m.get("n_factual_claims", 0)
     lines = [
         f"# Eval report — {run.id}",
         f"Dataset: {run.dataset_ref}  |  Provider: {m['provider']}  |  "
         f"Embedder: {m['embedder']}  |  Cost: ${run.cost_usd:.4f}",
         "",
+        "## Headline — grounding verifier catch rate",
+        f"- Blocked {blocked} of {attempted} attempted factual claims "
+        f"({pct(m['groundedness_rate'])} passed). Blocked claims are removed before output, so "
+        "output groundedness is 100% by construction; on the offline fake model nothing is "
+        "blocked (it only references valid fields), so this number is meaningful on a real run.",
+        "",
         "## Structural guarantees (provider-independent — deterministic code, NOT accuracy)",
-        f"- Factual claims that passed the verifier: {pct(m['groundedness_rate'])} "
-        f"(N={m['n_factual_claims']} attempted) — blocked claims are removed before output, so "
-        "output groundedness is 100% by construction; this rate is how often the model's "
-        "attempted factual references were already supported",
         f"- Hard-constraint satisfaction: {pct(m['constraint_satisfaction_rate'])} "
         f"(N={m['n_returned_items']} items) — vs the PARSED profile ({m['constraint_note']})",
         f"- Retrieval validity: {pct(m['retrieval_validity_rate'])} (N={m['n_returned_items']})",

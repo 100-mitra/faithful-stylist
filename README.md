@@ -100,22 +100,36 @@ curl -s localhost:8000/api/eval/run -H 'content-type: application/json' -d '{"n"
 
 ## Measured numbers
 
-There are two kinds of number here and they are **not** the same kind of claim. Read the
-distinction — it is the whole point of the project.
+The headline result and the structural guarantees are different kinds of claim — read the
+distinction, it's the whole point of the project. Every number is from this project (no borrowed
+metrics). The real-LLM figures come from **one small, cost-capped `anthropic` run** (N=10
+self-built briefs, `claude-haiku-4-5` + `claude-sonnet-4-6`, **total cost $0.29**), recorded as
+cassettes (`eval/cassettes/`, committed) and replayed by `tests/test_cassette.py` so they
+reproduce in CI with no key and no spend (`STYLIST_LLM=cassette pytest tests/test_cassette.py`).
 
-### A. Structural guarantees (provider-independent)
+### Headline — the verifier earns its keep on a real model
 
-These come from **deterministic code** — the grounding verifier and the SQL filters — **not
-from model accuracy**. They are provider-independent by construction (measured offline at N=40
-and **reconfirmed on the real `anthropic` run** below). They are guarantees about the
-*architecture*, not claims that the LLM is accurate or that the recommendations are good.
+> **12 / 172 attempted factual claims were blocked on the real run.** The model *tried* 172
+> factual references across the run; ~7% were unsupported (e.g. a certification the item lacks),
+> and the deterministic verifier caught **every one** and removed it — so **none reached the user**.
+
+This is the thesis made measurable: on the offline fake model groundedness is a trivial 100%,
+but a *real* model genuinely attempts unsupported claims, and the grounding layer is what stops
+them. (Output groundedness is still 100% by construction — see below; this number is the
+verifier's catch rate on the model's *attempts*.)
+
+### Structural guarantees (provider-independent)
+
+Deterministic code — the grounding verifier and SQL filters — **not model accuracy**.
+Provider-independent (measured offline at N=40, reconfirmed on the real run). Guarantees about
+the *architecture*, not claims that the LLM is accurate or that the recommendations are good.
 
 | Guarantee | Result | N | What it means — and what it does **not** |
 |---|---|---|---|
-| Output groundedness (no fabricated factual claim reaches the user) | 100% **by construction** | — | Factual text is code-rendered from the record; any claim the verifier can't support is removed before output. The real LLM *does* attempt unsupported claims — the verifier's measured catch rate is in §B. |
-| Hard-constraint satisfaction | 100% | 114 offline / 29 real | Enforced by SQL, re-checked per returned item — **against the _parsed_ profile** (see caveats). |
+| Output groundedness (no fabricated factual claim reaches the user) | 100% **by construction** | — | Factual text is code-rendered from the record; unsupported claims are removed before output (the headline catch rate above is what gets removed). |
+| Hard-constraint satisfaction | 100% | 114 offline / 29 real | SQL-enforced, re-checked per returned item — **against the _parsed_ profile** (see caveats). |
 | Retrieval validity | 100% | 114 offline / 29 real | Every returned item satisfies all parsed hard constraints. |
-| Adversarial grounding block rate | 100% | 40 offline / 10 real | The verifier blocks every injected hallucination — one per brief, **rotated** across 5 self-authored attack categories (carat/number, wrong metal, wrong stone, absent certification, currency-in-opinion). See caveat: known patterns, not robustness. |
+| Adversarial grounding block rate | 100% | 40 offline / 10 real | Blocks every injected hallucination — one per brief, **rotated** across 5 self-authored attack categories (carat/number, wrong metal, wrong stone, absent certification, currency-in-opinion). See caveat: known patterns, not robustness. |
 
 Caveats — these bound what the 100%s actually claim:
 - **"Grounded" ≠ "accurate" ≠ "good."** Groundedness means no *unsupported* factual claim
@@ -132,21 +146,21 @@ Caveats — these bound what the 100%s actually claim:
   lab-grown, gold-plated, an out-of-list stone) is **not** detected, and a true-but-misleading
   claim is not caught. It is a floor of demonstrated coverage, not a robustness guarantee.
 
-### B. Real `anthropic` run — measured numbers
+### Subjective estimates (real run — directional, never headlined)
 
-From **one small, cost-capped run**: N=10 self-built briefs, `claude-haiku-4-5` (tagging/parse)
-+ `claude-sonnet-4-6` (rerank/rationale/judge), **total cost $0.29**. Every response is recorded
-as a cassette (`eval/cassettes/`, committed) and `tests/test_cassette.py` replays them so these
-numbers reproduce in CI with no key and no further spend. Reproduce locally:
-`STYLIST_LLM=cassette pytest tests/test_cassette.py`.
+Reported only from the real run, always as estimates with N and a caveat:
+- **Subjective relevance: 3.4 / 5 (N=10)** — an LLM-as-judge estimate, **NOT validated
+  accuracy**: an LLM scoring an LLM over a tiny self-built set with no human ground truth.
+  Directional only; the judge prompt is in `eval/real_run.json`.
+- **Prompt-iteration pairwise: 90% to v2 (N=10)** — v2 (occasion-enriched) vs v1 (concise),
+  randomized order-shuffled to neutralize position bias. Tiny N; directional evidence the prompt
+  change helped, not a precise effect size.
 
-| Metric | Value (N) | What it is — and the caveat |
-|---|---|---|
-| **Verifier catch rate on real-LLM output** | **12 / 172 attempted factual claims blocked** (93.0% grounded) | The real model *attempted* 172 factual references; the deterministic verifier blocked 12 unsupported ones (e.g. a certification the item lacks) so **none reached the user**. This is the real-world payoff of the grounding layer — it catches the model's own organic errors, not just the injected ones. |
-| Subjective relevance | 3.4 / 5 (N=10) | **LLM-as-judge estimate, NOT validated accuracy** — an LLM scoring an LLM over a tiny self-built set with no human ground truth. Directional only. Judge prompt is in `eval/real_run.json`. |
-| Prompt-iteration pairwise win rate | 90% to v2 (N=10) | v2 (occasion-enriched) vs v1 (concise), **randomized order-shuffled** to neutralize position bias. Tiny N — directional evidence that the prompt change helped, not a precise effect size. |
-| Enrichment tagging agreement | 100% (N=86) | **Near-tautological, do not read as real accuracy:** the synthetic description contains the style word verbatim, so the model trivially recovers it. A real tagging-accuracy number needs human-labelled data (out of scope here). Reported only to show the enrichment path runs end-to-end on a real model. |
-| Eval cost | $0.29 | One capped run; the cap (`STYLIST_LLM_BUDGET_USD`) aborts before overspending. |
+> **Footnote — enrichment tagging is a sanity check, not an accuracy number.** The real run's
+> tagging agreement is 100% (N=86), but it is **near-tautological**: the synthetic product
+> description contains the style word verbatim, so the model trivially recovers it. It confirms
+> the enrichment path runs end-to-end on a real model; it is **not** real-world tagging accuracy
+> (that needs human-labelled data, out of scope here).
 
 ## Faithfulness & evaluation guarantees (the §4 contract)
 
