@@ -28,6 +28,8 @@ env/
 data/cache/
 data/scraped/
 data/raw/
+# Phase 2: product images are rendered deterministically at startup (not committed).
+data/images/
 
 # OS / editor
 .DS_Store

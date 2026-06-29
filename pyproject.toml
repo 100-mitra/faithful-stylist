@@ -16,6 +16,7 @@ dependencies = [
     "pydantic>=2.6",
     "sqlmodel>=0.0.16",
     "numpy>=1.26",
+    "pillow>=10.0",
     "jinja2>=3.1",
     "python-multipart>=0.0.9",
     "python-dotenv>=1.0",
@@ -31,6 +32,9 @@ scrape = ["requests>=2.31", "beautifulsoup4>=4.12", "lxml>=5.1"]
 # Opt-in heavier embedders behind the Embedder interface. NOT in the default/deploy set.
 st = ["sentence-transformers>=2.6"]
 voyage = ["voyageai>=0.2"]
+# Real CLIP image embeddings (Phase 2). Heavy (torch) — opt-in only; the default image
+# embedder is the dependency-light ColorGridEmbedder, so deploy/CI never need torch.
+clip = ["open-clip-torch>=2.24", "torch>=2.2"]
 dev = ["pytest>=8.0", "ruff>=0.4", "anthropic>=0.40"]
 
 [tool.hatch.build.targets.wheel]

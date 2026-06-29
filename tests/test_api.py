@@ -107,7 +107,43 @@ def test_tagging_accuracy_endpoint_suppressed_offline(client):
     assert "tautology" in body["caveat"].lower()
 
 
+def test_recommend_visual_endpoint(client, tmp_path):
+    # Phase 2: an inspiration image -> visually similar recs, still grounded + audited.
+    from core.ingest.images import render_product_image
+
+    img_path = tmp_path / "inspo.png"
+    render_product_image(
+        {"id": "inspo", "metal": "platinum", "stone_primary": "diamond", "category": "ring"}
+    ).save(img_path)
+    with open(img_path, "rb") as fh:
+        r = client.post(
+            "/api/recommend/visual",
+            files={"file": ("inspo.png", fh, "image/png")},
+            data={"text": "", "top_k": "3"},
+        )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["recommendations"] and body["blocked_any"] is False
+    assert "color-grid" in body["image_embedder"]
+    for rec in body["recommendations"]:
+        assert rec["grounding_decision"] == "passed"
+        assert rec["claims_audit"] and "visual" in rec["retrieval_scores"]
+        for claim in rec["claims_audit"]:
+            if claim["claim_type"] == "factual":
+                assert claim["grounded"] and not claim["blocked"]
+
+
+def test_recommend_visual_rejects_bad_image(client):
+    r = client.post(
+        "/api/recommend/visual",
+        files={"file": ("x.png", b"not a real image", "image/png")},
+        data={"top_k": "2"},
+    )
+    assert r.status_code == 400
+
+
 def test_index_ui_served(client):
     r = client.get("/")
     assert r.status_code == 200
     assert "Faithful" in r.text and "claims audit" in r.text
+    assert "Visual search" in r.text  # Phase 2 UI present

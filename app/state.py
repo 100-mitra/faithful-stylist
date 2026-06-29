@@ -7,8 +7,10 @@ from __future__ import annotations
 
 from core.config import get_settings
 from core.embed import get_embedder
+from core.image_embed import get_image_embedder
 from core.llm import get_provider
 from core.pipeline import CatalogContext, build_catalog
+from core.visual import VisualIndex, build_visual_index
 
 
 class AppState:
@@ -17,6 +19,10 @@ class AppState:
         self.provider = get_provider(self.settings)
         self.embedder = get_embedder(self.settings)
         self.ctx: CatalogContext = build_catalog(self.provider, db_url=self.settings.db_url)
+        # Phase 2: render + embed product images once for visual search (default colour
+        # embedder needs no torch, so this is cheap and works on the free-tier deploy).
+        self.image_embedder = get_image_embedder(self.settings)
+        self.visual: VisualIndex = build_visual_index(self.ctx.products, self.image_embedder)
 
 
 _state: AppState | None = None

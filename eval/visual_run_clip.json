@@ -1,0 +1,11 @@
+{
+  "k": 5,
+  "n": 86,
+  "embedder": "clip-ViT-B-32-quickgelu-openai",
+  "same_category_rate": 0.7512,
+  "same_metal_rate": 0.493,
+  "same_stone_rate": 0.493,
+  "n_categories": 7,
+  "n_metals": 5,
+  "caveat": "Synthetic renders (metal->colour, stone->gem colour, category->silhouette), NOT photographs. A pipeline sanity check that visual nearest-neighbour recovers same-attribute items; NOT a claim about real-photo aesthetic similarity. Baselines: random same-category with 7 categories ~14%, same-metal with 5 metals ~20%."
+}

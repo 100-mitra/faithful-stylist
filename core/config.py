@@ -35,6 +35,7 @@ class Settings:
 
     llm_provider: str  # "fake" | "anthropic" | "cassette"
     embedder: str  # "hashing" | "minilm" | "voyage"
+    image_embedder: str  # "color" | "clip"  (Phase 2 visual search)
     anthropic_api_key: str | None
     voyage_api_key: str | None
     llm_budget_usd: float
@@ -51,6 +52,7 @@ def get_settings() -> Settings:
     return Settings(
         llm_provider=_env("STYLIST_LLM", "fake").lower(),
         embedder=_env("STYLIST_EMBEDDER", "hashing").lower(),
+        image_embedder=_env("STYLIST_IMAGE_EMBEDDER", "color").lower(),
         anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY") or None,
         voyage_api_key=os.environ.get("VOYAGE_API_KEY") or None,
         llm_budget_usd=float(_env("STYLIST_LLM_BUDGET_USD", "1.00")),

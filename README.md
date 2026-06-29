@@ -14,9 +14,9 @@ visible claims audit, tick **"inject a hallucinated claim"** to watch the verifi
 run the eval. Keyless and free (runs on the offline provider). Free tier spins down when idle, so
 the first request may cold-start for ~30–60s.
 
-> Scope: **Phase 0 + Phase 1** — a complete, shippable artifact. This is a portfolio/learning
-> project, not a production system. The evaluation is deliberately honest about its limits
-> (see **Limitations**).
+> Scope: **Phases 0–2** — the complete, shippable Phase 1 deliverable plus Phase 2 visual
+> search (CLIP). A portfolio/learning project, not a production system; the evaluation is
+> deliberately honest about its limits (see **Limitations**).
 
 ## Why this is different
 
@@ -161,6 +161,48 @@ Reported only from the real run, always as estimates with N and a caveat:
 > description contains the style word verbatim, so the model trivially recovers it. It confirms
 > the enrichment path runs end-to-end on a real model; it is **not** real-world tagging accuracy
 > (that needs human-labelled data, out of scope here).
+
+## Phase 2 — Visual search (CLIP)
+
+Upload an inspiration image → **visually similar** catalog items, optionally **fused with a
+text brief** — and the recommendations are *still grounded* (visual similarity only orders
+candidates; every factual claim is templated from the record and audited). Endpoint:
+`POST /api/recommend/visual` (multipart `file` + optional `text` + `top_k`); the demo UI has an
+upload box.
+
+The synthetic catalog has no photographs, so each product is rendered to a deterministic image
+from its attributes (metal→colour, stone→gem colour, category→silhouette;
+`core/ingest/images.py`). **Visual similarity here therefore reflects those rendered attributes,
+not real-photo aesthetics** — the eval below is a *pipeline sanity check*, not a real-world
+image-similarity claim.
+
+**Two embedders behind one interface** (`core/image_embed.py`):
+- `color` (default) — a dependency-light colour-grid embedder (no torch), so the live visual
+  demo runs keyless on the free-tier deploy and in CI.
+- `clip` (opt-in `pip install '.[clip]'`, `STYLIST_IMAGE_EMBEDDER=clip`) — real CLIP
+  (`ViT-B-32-quickgelu`, OpenAI weights), the genuine multimodal model.
+
+**Honest sanity eval** — leave-one-out: for each item, what fraction of its top-5 visual
+neighbours share its category / metal / primary stone? (`python -m eval.visual_eval`)
+
+| Embedder | same-category @5 | same-metal @5 | same-stone @5 |
+|---|---|---|---|
+| Random baseline (7 cats / 5 metals / ~8 stones) | ~14% | ~20% | ~12% |
+| `color-grid` (default, no torch) | **87%** | 42% | 32% |
+| `clip` ViT-B-32 (OpenAI) | 75% | **49%** | **49%** |
+
+(N=86, k=5; recorded in `eval/visual_run_color.json` / `eval/visual_run_clip.json`.) Read it
+honestly: **both clearly beat random**, but neither is strictly better — the colour grid
+over-indexes on the coarse silhouette (so it tops *category*), while CLIP captures material/gem
+semantics better (so it tops *metal* and *stone*). On real photographs CLIP's edge would widen;
+on these renders the trivial baseline is competitive, and saying so is the point. The colour-grid
+numbers reproduce in CI (`tests/test_visual.py` asserts they beat the baselines); the CLIP
+numbers need the `[clip]` extra (torch isn't in CI), so they're recorded artifacts, not
+CI-reproduced.
+
+**Grounding is unchanged.** A visual recommendation runs the same grounded-rationale + verifier
+path; `tests/test_visual.py` asserts every factual claim on a visual rec is grounded, and that a
+fused image+text query still honours hard constraints.
 
 ## Faithfulness & evaluation guarantees (the §4 contract)
 

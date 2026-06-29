@@ -7,11 +7,14 @@ shows a fabricated claim being blocked).
 
 from __future__ import annotations
 
+import os
+import tempfile
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse
+from PIL import UnidentifiedImageError
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -124,6 +127,47 @@ def post_recommend(req: RecommendRequest) -> dict:
         "profile": _profile_dict(profile),
         "recommendations": [_rec_dict(r) for r in recs],
         "blocked_any": any(r.grounding_decision == "blocked" for r in recs),
+    }
+
+
+@app.post("/api/recommend/visual")
+async def post_recommend_visual(
+    file: UploadFile = File(...),
+    text: str = Form(""),
+    top_k: int = Form(5),
+) -> dict:
+    """Phase 2: an inspiration image (+ optional text brief) -> visually similar recs.
+
+    Visual similarity only orders candidates; every factual claim is still grounded + audited.
+    """
+    from core.visual import recommend_visual
+
+    state = get_state()
+    data = await file.read()
+    suffix = os.path.splitext(file.filename or "")[1] or ".png"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        tmp.write(data)
+        tmp_path = tmp.name
+    try:
+        profile, recs = recommend_visual(
+            tmp_path,
+            text,
+            state.ctx,
+            state.visual,
+            state.image_embedder,
+            state.provider,
+            state.embedder,
+            top_k=top_k,
+        )
+    except (UnidentifiedImageError, OSError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=f"could not read image: {exc}") from exc
+    finally:
+        os.unlink(tmp_path)
+    return {
+        "profile": _profile_dict(profile),
+        "recommendations": [_rec_dict(r) for r in recs],
+        "blocked_any": any(r.grounding_decision == "blocked" for r in recs),
+        "image_embedder": state.visual.embedder_name,
     }
 
 

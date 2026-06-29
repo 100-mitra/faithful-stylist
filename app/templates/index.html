@@ -70,6 +70,21 @@
     </div>
   </div>
 
+  <div class="card">
+    <div class="row" style="margin:0 0 8px;justify-content:space-between;">
+      <b>Visual search (Phase 2)</b>
+      <span class="muted" style="font-size:12px;">inspiration image → visually similar, still grounded</span>
+    </div>
+    <input type="file" id="vfile" accept="image/*">
+    <div class="row">
+      <input id="vtext" placeholder="optional brief to fuse (e.g. platinum only, under 90,000)" style="flex:1;min-width:220px;background:#0d0f13;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:8px;">
+      <button onclick="recommendVisual()">Find similar</button>
+    </div>
+    <div class="muted" style="font-size:12px;margin-top:6px;">Product images are deterministic
+      renders, not photos; similarity reflects rendered colour/shape. The default embedder is a
+      colour grid (no torch); the <code>[clip]</code> extra swaps in real CLIP.</div>
+  </div>
+
   <div id="out"></div>
 
   <div class="card">
@@ -133,6 +148,21 @@ function render(data){
   return html;
 }
 function chip(k,v){ return '<span class="pill">'+k+': '+esc(v)+'</span>'; }
+
+async function recommendVisual(){
+  const out = document.getElementById('out');
+  const f = document.getElementById('vfile').files[0];
+  if(!f){ out.innerHTML = '<div class="card muted">Choose an image first.</div>'; return; }
+  out.innerHTML = '<div class="card muted">Embedding image…</div>';
+  const fd = new FormData();
+  fd.append('file', f);
+  fd.append('text', document.getElementById('vtext').value || '');
+  fd.append('top_k', document.getElementById('topk').value || '4');
+  const r = await fetch('/api/recommend/visual', {method:'POST', body: fd});
+  if(!r.ok){ out.innerHTML = '<div class="card banner">'+esc((await r.json()).detail || 'error')+'</div>'; return; }
+  const data = await r.json();
+  out.innerHTML = '<div class="card muted">Visual matches via '+esc(data.image_embedder)+' (still grounded):</div>' + render(data);
+}
 
 async function runEval(){
   const el = document.getElementById('eval');
